@@ -1,2 +1,6 @@
 ipykernel
 lightning
+cleanlab[image]
+timm
+wandb
+seaborn
