@@ -1,0 +1,19 @@
+_target_: src.models.segmentation.SegmentationModel
+_partial_: true
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  betas: [0.9, 0.999]
+  weight_decay: 0.001
+  amsgrad: false
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  eta_min: 0
+  last_epoch: -1 
+  verbose: false
+
+compile: true

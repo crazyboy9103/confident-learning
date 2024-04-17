@@ -4,3 +4,8 @@ cleanlab[image]
 timm
 wandb
 seaborn
+rich # richprogressbar
+imagesize # parsing neurocle data to coco
+pytest
+hydra-core
+omegaconf

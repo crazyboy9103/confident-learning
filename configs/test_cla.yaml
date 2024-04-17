@@ -1,0 +1,62 @@
+# @package _global_
+
+# specify here default configuration
+# order of defaults determines the order in which configs override each other
+defaults:
+  - paths: default
+  - data: imagefolder
+  - model: efficientnet
+  - callbacks: default
+  - logger: wandb # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
+  - trainer: gpu
+  - _self_ # If the new behavior works for your application, append _self_ to the end of the Defaults List.
+           # If your application requires the previous behavior, insert _self_ as the first item in your Defaults List. 
+
+# seed for random number generators in pytorch, numpy and python.random
+seed: 42
+num_folds: 4
+task_name: ramen
+num_epochs: 10
+
+paths:
+  root_dir: /workspace
+  data_root_dir: /datasets/conflearn/cla/ramen_processed_data
+  log_dir: /workspace/logs
+  output_dir: /workspace/outputs
+
+data: 
+  batch_size: 64
+  train_transform:
+    resize_size: 224
+  
+  valid_transform:
+    resize_size: 224
+
+  test_transform:
+    resize_size: 224
+
+model:
+  optimizer:
+    lr: 0.001
+    weight_decay: 0.001
+  
+  scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    T_max: ${num_epochs}
+    eta_min: 0
+    last_epoch: -1
+  
+  compile: true
+
+logger:
+  project: "confident-learning"
+  tags: ["classification", "efficientnet", "ramen"]
+  save_dir: /workspace/outputs
+
+trainer:
+  max_epochs: ${num_epochs}
+  deterministic: true
+  num_sanity_val_steps: 0
+  precision: 16-mixed
+  log_every_n_steps: 1
+

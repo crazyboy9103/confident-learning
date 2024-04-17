@@ -1,0 +1,25 @@
+_target_: src.data.imagefolder.NoisyImageFolderDataModule
+_partial_: true
+
+root: ${paths.data_root_dir}
+batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
+num_workers: 8
+pin_memory: true
+
+train_transform:
+  _target_: src.transforms.classification.get_transform
+  is_train: true
+  resize_size: 224
+
+valid_transform:
+  _target_: src.transforms.classification.get_transform
+  is_train: false
+  resize_size: 224
+  
+test_transform:
+  _target_: src.transforms.classification.get_transform
+  is_train: false
+  resize_size: 224
+
+num_classes_to_swap: 3
+swap_prob: 0.1

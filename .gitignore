@@ -69,5 +69,6 @@ venv.bak/
 conf-learn*/
 lab_reports/*
 wandb/
-test*
-*.ipynb
+outputs/
+*.pt
+*.png
