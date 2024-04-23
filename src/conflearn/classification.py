@@ -33,32 +33,34 @@ class Classification:
                 1. self_confidence: self-confidence of predictions
                 2. normalized_margin: p_y-p_{y'}, y'=argmax_k!=y p_k 
         Returns:
-            error_indices: indices of error predictions
+            error_mask: boolean mask of errors
             label_quality_scores: quality scores of pseudo-labels
         """
         match method:
             case "pl":
                 pseudo_labels = self.preds.argmax(axis=1)
-                error_indices = (pseudo_labels != self.labels).nonzero()[0]
+                error_mask = pseudo_labels != self.labels
 
             case "cl":
                 thresholds = self.per_class_thresholds()
                 above_thresholds = self.preds >= thresholds
-                pseudo_labels = self.preds.argmax(axis=1)
-                
-                error_indices = []
+            
+                error_mask = []
                 for i in range(len(self.preds)):
                     indices = above_thresholds[i].nonzero()[0]
                     if len(indices) == 0:
+                        error_mask.append(True)
                         continue
                     
                     j = indices[self.preds[i, indices].argmax()]
 
                     if self.preds[i, j] >= thresholds[j] and j != self.labels[i]:
-                        error_indices.append(i)
+                        error_mask.append(True)
+                    else:
+                        error_mask.append(False)
 
-                error_indices = np.array(error_indices)
-                
+                error_mask = np.array(error_mask)
+
             case "PBC":
                 raise NotImplementedError
         
@@ -87,7 +89,7 @@ class Classification:
             case _:
                 raise ValueError(f"Unknown score_method: {score_method}")
             
-        return error_indices, label_quality_scores
+        return error_mask, label_quality_scores
     
 if __name__ == "__main__":
     # from torchvision import models

@@ -5,6 +5,7 @@ from itertools import combinations
 import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
+from torchvision.transforms import v2 as Tv2
 from sklearn.model_selection import StratifiedKFold
 
 from .utils import SubsetWithTransform
@@ -178,11 +179,24 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
             shuffle=False,
         )
     
-    def predict_info(self):
-        return {
-            "orig_labels": [self.dataset.targets[i] for i in self.data_pred.idxs],
-            "noisy_labels": [self.dataset.noisy_labels[i] for i in self.data_pred.idxs],
-        }
+    def pred_images(self):
+        # remove the transform to get the original images
+        transform = self.data_pred.transform
+        # resize the images to a fixed size for visualization
+        self.data_pred.transform = Tv2.Resize((480, 480))
+        images = [image for image, _ in self.data_pred]
+        # restore the original transform
+        self.data_pred.transform = transform
+        return images
+    
+    def pred_swapped_labels(self):
+        return [self.dataset.noisy_labels[i] != self.dataset.targets[i] for i in self.data_pred.idxs]
+    
+    def idx_to_class(self, idx):
+        if not hasattr(self, "dataset"):
+            raise ValueError("The dataset is not loaded yet. Call setup() first.")
+        
+        return self.dataset.classes[idx]
     
     def teardown(self, stage: Optional[str] = None) -> None:
         """Lightning hook for cleaning up after `trainer.fit()`, `trainer.validate()`,

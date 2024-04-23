@@ -2,21 +2,19 @@ _target_: src.data.cocodetection.NoisyCocoDataModule
 _partial_: true
 
 root: ${paths.data_root_dir}/images
-annFile: ${paths.data_root_dir}/labels.json
+annFile: ${paths.data_root_dir}/label.json
 batch_size: 32 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
 num_workers: 8
 pin_memory: true
 
 train_transform:
-  _target_: src.transforms.detection.get_transform
+  _target_: src.transforms.detection.get_transform # or src.transforms.segmentation.get_transform
   is_train: true
   data_augmentation: hflip
 
 valid_transform:
   _target_: src.transforms.detection.get_transform
   is_train: false
-  image_transform:
-    _target_: src.transforms.detection.retinanet_transform
   
 test_transform:
   _target_: src.transforms.detection.get_transform
@@ -26,7 +24,6 @@ noise_type: overlook
 noise_config: 
   _target_: src.data.cocodetection.OverlookNoiseConfig
   # prob: 0.1
-  # debug: True
 
 # noise_type: badloc
 # noise_config: 

@@ -2,13 +2,12 @@
 from tqdm import tqdm
 import numpy as np
 
-from utils import batch_iou, similarity, softmin1d_pooling
+from .utils import batch_iou, similarity, softmin1d_pooling
 
 class Detection:
-    def __init__(self, labels, preds, num_classes):
+    def __init__(self, labels, preds):
         self.labels = labels
         self.preds = preds
-        self.num_classes = num_classes
     
     def badloc_scores(self, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, min_confidence, alpha):
         scores = []
@@ -17,7 +16,7 @@ class Detection:
             confident = pred_scores >= min_confidence
             matching = pred_labels == gt_label
 
-            if np.any(matching & confident & overlapping):
+            if any(matching & confident & overlapping):
                 score = similarity(pred_boxes[matching & confident & overlapping], gt_box, alpha).max()
 
             else:
@@ -39,11 +38,11 @@ class Detection:
             confident = predicted_confidence >= min_confidence
             matching = gt_labels == predicted_label
 
-            if not confident or np.any(overlapping):
+            if not confident or any(overlapping):
                 score = np.nan
 
             else:
-                if not np.any(matching):
+                if not any(matching):
                     score = min_similarity * (1-predicted_confidence)
 
                 else:
@@ -58,7 +57,7 @@ class Detection:
         for gt_box, gt_label in zip(gt_boxes, gt_labels):
             # Find predictions of different classes with high confidence
             high_confidence_wrong_class = (pred_labels != gt_label) & (pred_scores > min_confidence)
-            if not np.any(high_confidence_wrong_class):
+            if not any(high_confidence_wrong_class):
                 score = 1.0  # Default score when there are no high confidence wrong class predictions
 
             else:

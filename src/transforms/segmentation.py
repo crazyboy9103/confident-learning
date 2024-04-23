@@ -86,19 +86,10 @@ def fcn_transform() -> Callable:
     weights = FCN_ResNet50_Weights.COCO_WITH_VOC_LABELS_V1
     return weights.transforms()
 
-def get_transform(is_train, image_transform = None, **kwargs):
+def get_transform(is_train, **kwargs):
     if is_train:
         return SegmentationPresetTrain(
             **kwargs
         )
-    
-    if not is_train and image_transform:
-        def transform_fn(image, target):
-            image = image_transform(image)
-            size = F.get_dimensions(image)
-            target = F.resize(target, size, interpolation=F.InterpolationMode.NEAREST)
-            return image, F.pil_to_tensor(target)
-        
-        return transform_fn
     
     return SegmentationPresetEval(**kwargs)

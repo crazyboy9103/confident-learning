@@ -61,9 +61,9 @@ class ClassificationModel(pl.LightningModule):
         self.train_acc.reset()
 
     def predict_step(self, batch, batch_idx):
-        images, targets = batch
+        _, targets = batch
         _, probs = self.shared_step(batch, batch_idx)
-        return images, targets, probs
+        return targets, probs
     
     def setup(self, stage: str):
         if self.hparams.compile and stage == "fit":

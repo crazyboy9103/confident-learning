@@ -2,15 +2,21 @@ from typing import Any, Dict, List, Optional, Callable, Literal, Union
 import random
 from itertools import combinations
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
 import lightning.pytorch as pl
+import torch
 from torch.utils.data import DataLoader
+from torchvision import tv_tensors
 from torchvision.datasets import CocoDetection
+from torchvision.transforms.v2 import functional as F
+from torchvision.tv_tensors._dataset_wrapper import list_of_dicts_to_dict_of_lists
 from sklearn.model_selection import KFold
 import cv2
 
 from .utils import SubsetWithTransform
+
 
 def polygon_area(polygon):
     reshaped_polygon = np.array(polygon, dtype=np.int32).reshape((-1, 1, 2))
@@ -22,7 +28,6 @@ def collate_fn(batch):
 @dataclass
 class OverlookNoiseConfig:
     prob: float = 0.05
-    debug: bool = False # if True, do not remove the noisy labels
 
 @dataclass
 class BadLocNoiseConfig:
@@ -34,19 +39,61 @@ class SwapNoiseConfig:
     num_classes_to_swap: int = 3
     prob: float = 0.05
 
+class NoiseType(Enum):
+    NORMAL: int = 0
+    OVERLOOK: int = 1
+    BADLOC: int = 2
+    SWAP: int = 3
+
+def segmentation_to_mask(segmentation, *, canvas_size):
+    from pycocotools import mask
+
+    segmentation = (
+        mask.frPyObjects(segmentation, *canvas_size)
+        if isinstance(segmentation, dict)
+        else mask.merge(mask.frPyObjects(segmentation, *canvas_size))
+    )
+    return torch.from_numpy(mask.decode(segmentation))
 class NoisyCocoDetection(CocoDetection):
-    def _load_target(self, id: int):
-        target = super()._load_target(id)
+    def __getitem__(self, index: int):
+        # Refer to https://pytorch.org/vision/stable/generated/torchvision.datasets.wrap_dataset_for_transforms_v2.html
+        # for the explanation of the following code
+        image_id = self.ids[index]
+        image = self._load_image(image_id)
+        target = self._load_target(image_id)
 
-        if self.type == "overlook" and not self.config.debug:
-            target = [ann for ann in target if not ann["noisy_label"]]
-            
-        return target
+        if not target:
+            return image, dict(image_id=image_id)
 
+        canvas_size = tuple(F.get_size(image))
+        batched_target = list_of_dicts_to_dict_of_lists(target)
+
+        target = {"image_id": image_id}
+
+        target["boxes"] = F.convert_bounding_box_format(
+            tv_tensors.BoundingBoxes(
+                batched_target["bbox"],
+                format=tv_tensors.BoundingBoxFormat.XYWH,
+                canvas_size=canvas_size,
+            ),
+            new_format=tv_tensors.BoundingBoxFormat.XYXY,
+        )
+        target["masks"] = tv_tensors.Mask(
+            torch.stack(
+                [
+                    segmentation_to_mask(segmentation, canvas_size=canvas_size)
+                    for segmentation in batched_target["segmentation"]
+                ]
+            ),
+        )
+        target["labels"] = torch.tensor(batched_target["category_id"])
+        target["noisy_labels"] = torch.tensor(batched_target["noisy_label"])
+        target["noisy_label_types"] = torch.tensor(batched_target["noisy_label_type"])
+        return image, target
+    
     def __init__(self, type: Literal["overlook", "badloc", "swap"], config: Union[OverlookNoiseConfig, BadLocNoiseConfig, SwapNoiseConfig], *args, **kwargs):
         super().__init__(*args, **kwargs)
         random.seed(42) # fixed seed for reproducibility
-
         # CocoDetection uses self.coco.loadAnns(self.coco.getAnnIds(id)) to load the target, where 
         #   imgToAnns: imgToAnns['image_id'] = anns
         #   getAnnIds: self.imgToAnns[imgId]
@@ -73,9 +120,10 @@ class NoisyCocoDetection(CocoDetection):
         # Add a flag to each annotation to track whether it is noisy or not
         for ann_id, ann in self.coco.anns.items():
             ann["noisy_label"] = False
+            ann["noisy_label_type"] =  NoiseType.NORMAL.value
 
         cat_ids = self.coco.getCatIds()
-        self.classes = cat_ids
+        self.classes = self.coco.cats.copy()
 
         ann_ids = self.coco.getAnnIds()
         
@@ -93,6 +141,28 @@ class NoisyCocoDetection(CocoDetection):
 
                 for ann_id in ann_ids_overlook:
                     self.coco.anns[ann_id]["noisy_label"] = True
+                    self.coco.anns[ann_id]["noisy_label_type"] = NoiseType.OVERLOOK.value
+
+                    ann = self.coco.anns[ann_id]
+
+                    # Fetch width and height for clipping within the image
+                    img = self.coco.imgs[ann["image_id"]]
+                    img_width, img_height = img["width"], img["height"]
+
+                    # Pick random box (x1, y1, x2, y2) to replace the original box
+                    x1 = random.randint(0, img_width-1)
+                    y1 = random.randint(0, img_height-1)
+                    x2 = random.randint(0, img_width-1)
+                    y2 = random.randint(0, img_height-1)
+
+                    x1, x2 = min(x1, x2), max(x1, x2)
+                    y1, y2 = min(y1, y2), max(y1, y2)
+                    w = x2 - x1
+                    h = y2 - y1
+
+                    ann["area"] = w * h
+                    ann["bbox"] = [x1, y1, w, h]
+                    ann["segmentation"] = [[x1, y1, x2, y1, x2, y2, x1, y2]]
 
             case "badloc":
                 assert isinstance(config, BadLocNoiseConfig)
@@ -104,6 +174,7 @@ class NoisyCocoDetection(CocoDetection):
 
                 for ann_id in ann_ids_badloc:
                     self.coco.anns[ann_id]["noisy_label"] = True
+                    self.coco.anns[ann_id]["noisy_label_type"] =  NoiseType.BADLOC.value
 
                     ann = self.coco.anns[ann_id]
                     
@@ -134,7 +205,7 @@ class NoisyCocoDetection(CocoDetection):
                     w = x2 - x1
                     h = y2 - y1
 
-                    ann["area"] = w * h
+                    # ann["area"] = w * h
                     ann["bbox"] = [x1, y1, w, h]
 
                     # Move the segmentation
@@ -167,16 +238,17 @@ class NoisyCocoDetection(CocoDetection):
                     
                     for ann_id in ann_ids_swap_i:
                         self.coco.anns[ann_id]["noisy_label"] = True
+                        self.coco.anns[ann_id]["noisy_label_type"] = NoiseType.SWAP.value
 
                         ann = self.coco.anns[ann_id]
                         ann["category_id"] = j
                     
                     for ann_id in ann_ids_swap_j:
                         self.coco.anns[ann_id]["noisy_label"] = True
+                        self.coco.anns[ann_id]["noisy_label_type"] = NoiseType.SWAP.value
 
                         ann = self.coco.anns[ann_id]
                         ann["category_id"] = i
-        
 class NoisyCocoDataModule(pl.LightningDataModule):
     def __init__(
         self,
@@ -255,7 +327,6 @@ class NoisyCocoDataModule(pl.LightningDataModule):
                 annFile = self.hparams.annFile, 
                 transform=None
             )
-
             self.num_classes = len(self.dataset.classes)
 
             # the seed is intentionally fixed to ensure the same split for each instance, which is crucial for our implementation
@@ -312,6 +383,14 @@ class NoisyCocoDataModule(pl.LightningDataModule):
             "pred_idxs": self.data_pred.idxs,
             "fold_index": self.hparams.fold_index
         }
+    
+    def pred_images(self):
+        # remove the transform to get the original images
+        transform = self.data_pred.transform
+        self.data_pred.transform = None 
+        images = [image for image, _ in self.data_pred]
+        self.data_pred.transform = transform
+        return images
     
     def teardown(self, stage: Optional[str] = None) -> None:
         """Lightning hook for cleaning up after `trainer.fit()`, `trainer.validate()`,

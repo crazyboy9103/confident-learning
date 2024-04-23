@@ -16,4 +16,5 @@ scheduler:
   last_epoch: -1 
   verbose: false
 
+trainable_backbone_layers: 5
 compile: true

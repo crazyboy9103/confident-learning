@@ -9,3 +9,4 @@ imagesize # parsing neurocle data to coco
 pytest
 hydra-core
 omegaconf
+faster-coco-eval

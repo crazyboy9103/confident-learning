@@ -14,11 +14,12 @@ class DetectionModel(pl.LightningModule):
         scheduler: optim.lr_scheduler, 
         fold: int,
         compile: bool = False, 
+        **kwargs
     ):
         super().__init__()
         self.save_hyperparameters()
 
-        self.net = retinanet_builder(num_classes, trainable_backbone_layers)
+        self.net = retinanet_builder(num_classes, trainable_backbone_layers, **kwargs)
 
         self.mAP = mAP(
             box_format='xyxy',
@@ -28,8 +29,8 @@ class DetectionModel(pl.LightningModule):
             backend = "faster_coco_eval"
         )
 
-    def forward(self, x):
-        return self.net(x)
+    def forward(self, images, targets=None):
+        return self.net(images, targets)
 
     def shared_step(self, batch, batch_idx):
         images, targets = batch
@@ -38,7 +39,8 @@ class DetectionModel(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         loss_dict = self.shared_step(batch, batch_idx)
-        return loss_dict
+        self.log_dict({f"train_loss_{self.hparams.fold}_{k}": v for k, v in loss_dict.items()})
+        return sum(loss_dict.values())
     
     def validation_step(self, batch, batch_idx):
         preds = self.shared_step(batch, batch_idx)
@@ -46,13 +48,15 @@ class DetectionModel(pl.LightningModule):
         self.mAP(preds, targets)
 
     def on_validation_epoch_end(self):
-        self.log_dict({f"{k}_{self.hparams.fold}": v for k, v in self.mAP.compute().items()}) 
+        result = self.mAP.compute()
+        result.pop("classes")
+        self.log_dict({f"valid_{k}_{self.hparams.fold}": v for k, v in result.items()}) 
         self.mAP.reset()
 
     def predict_step(self, batch, batch_idx):
-        images, targets = batch
+        _, targets = batch
         preds = self.shared_step(batch, batch_idx)
-        return images, targets, preds
+        return targets, preds
     
     def setup(self, stage: str):
         if self.hparams.compile and stage == "fit":

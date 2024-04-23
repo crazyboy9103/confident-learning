@@ -31,8 +31,8 @@ class DetectionPresetTrain:
 
         transforms += [
             Tv2.ToDtype(torch.float, scale=True),
-            Tv2.ConvertBoundingBoxFormat(tv_tensors.BoundingBoxFormat.XYXY),
-            # Tv2.SanitizeBoundingBoxes(),
+            # Tv2.ConvertBoundingBoxFormat(tv_tensors.BoundingBoxFormat.XYXY),
+            Tv2.SanitizeBoundingBoxes(),
             Tv2.ToPureTensor(),
         ]
 
@@ -63,18 +63,11 @@ def retinanet_transform() -> Callable:
     weights = RetinaNet_ResNet50_FPN_Weights.COCO_V1
     return weights.transforms()
 
-def get_transform(is_train, image_transform = None, **kwargs):
+def get_transform(is_train, **kwargs):
     if is_train:
         return DetectionPresetTrain(
             **kwargs
         )
-    
-    if not is_train and image_transform:
-        def transform_fn(image, target):
-            image = image_transform(image)
-            return image, target
-        
-        return transform_fn
     
     return DetectionPresetEval(**kwargs)
     

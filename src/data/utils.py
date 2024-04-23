@@ -5,9 +5,18 @@ class SubsetWithTransform(Dataset):
         self.dataset = dataset
         self.idxs = idxs
         self.transform = transform
-        
+    
+    # We want to iterate too
+    def __iter__(self):
+        for idx in self.idxs:
+            image, target = self.dataset[idx]
+            if self.transform:
+                image, target = self.transform(image, target)
+
+            yield image, target
+                        
     def __getitem__(self, index):
-        image, target = self.dataset[index]
+        image, target = self.dataset[self.idxs[index]]
         if self.transform:
             image, target = self.transform(image, target)
         return image, target
