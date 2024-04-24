@@ -8,16 +8,18 @@ num_workers: 8
 pin_memory: true
 
 train_transform:
-  _target_: src.transforms.detection.get_transform
+  _target_: src.transforms.segmentation.get_transform 
   is_train: true
-  data_augmentation: hflip
+  base_size: 520
+  crop_size: 480
+  hflip_prob: 0.5
 
 valid_transform:
-  _target_: src.transforms.detection.get_transform
+  _target_: src.transforms.segmentation.get_transform
   is_train: false
   
 test_transform:
-  _target_: src.transforms.detection.get_transform
+  _target_: src.transforms.segmentation.get_transform
   is_train: false
 
 noise_type: overlook

@@ -2,8 +2,7 @@
 from typing import Callable
 
 import torch
-from torchvision import tv_tensors
-from torchvision.transforms import v2 as Tv2
+from torchvision.transforms import v2
 from torchvision.models.detection.retinanet import RetinaNet_ResNet50_FPN_Weights
 
 class DetectionPresetTrain:
@@ -14,29 +13,29 @@ class DetectionPresetTrain:
         hflip_prob=0.5,
     ):
         transforms = [
-            Tv2.ToImage(),
+            v2.ToImage(),
         ]
 
         if data_augmentation == "hflip":
-            transforms += [Tv2.RandomHorizontalFlip(p=hflip_prob)]
+            transforms += [v2.RandomHorizontalFlip(p=hflip_prob)]
 
         elif data_augmentation == "multiscale":
             transforms += [
-                Tv2.RandomShortestSize(min_size=(480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800), max_size=1333),
-                Tv2.RandomHorizontalFlip(p=hflip_prob),
+                v2.RandomShortestSize(min_size=(480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800), max_size=1333),
+                v2.RandomHorizontalFlip(p=hflip_prob),
             ]
 
         else:
             raise ValueError(f'Unknown data augmentation policy "{data_augmentation}"')
 
         transforms += [
-            Tv2.ToDtype(torch.float, scale=True),
-            # Tv2.ConvertBoundingBoxFormat(tv_tensors.BoundingBoxFormat.XYXY),
-            Tv2.SanitizeBoundingBoxes(),
-            Tv2.ToPureTensor(),
+            v2.ToDtype(torch.float, scale=True),
+            # v2.ConvertBoundingBoxFormat(tv_tensors.BoundingBoxFormat.XYXY),
+            v2.SanitizeBoundingBoxes(),
+            v2.ToPureTensor(),
         ]
 
-        self.transforms = Tv2.Compose(transforms)
+        self.transforms = v2.Compose(transforms)
 
     def __call__(self, img, target):
         return self.transforms(img, target)
@@ -45,12 +44,13 @@ class DetectionPresetTrain:
 class DetectionPresetEval:
     def __init__(self):
         transforms = [
-            Tv2.ToImage(),
-            Tv2.ToDtype(torch.float, scale=True),
-            Tv2.ToPureTensor()
+            v2.ToImage(),
+            v2.ToDtype(torch.float, scale=True),
+            v2.SanitizeBoundingBoxes(),
+            v2.ToPureTensor()
         ]
 
-        self.transforms = Tv2.Compose(transforms)
+        self.transforms = v2.Compose(transforms)
 
     def __call__(self, img, target):
         return self.transforms(img, target)

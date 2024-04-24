@@ -1,22 +1,17 @@
 from tqdm import tqdm
 
-from utils import softmin
+from .utils import softmin
 
 class Segmentation:
-    def __init__(self, labels, pred_masks, pred_max_probs, pred_selfconf_probs, num_classes):
-        self.labels = labels
-        self.pred_masks = pred_masks
-        self.pred_max_probs = pred_max_probs
+    def __init__(self, pred_selfconf_probs):
         self.pred_selfconf_probs = pred_selfconf_probs
-        self.num_classes = num_classes
     
     def get_result(self, pooling=False, softmin_temperature=0.1):
         scores = []
-        for pred_selfconf, gt_mask in tqdm(zip(self.pred_selfconf_probs, self.labels), total=len(self.labels), desc="Calculating scores"):
-            score = pred_selfconf
+        for score in tqdm(self.pred_selfconf_probs, total=len(self.pred_selfconf_probs), desc="Calculating scores"):
             if pooling:
-                weights = softmin(pred_selfconf, temperature=softmin_temperature)
-                score = weights * pred_selfconf
+                weights = softmin(score, temperature=softmin_temperature)
+                score = weights * score
                 score = score.sum()
             
             scores.append(score)

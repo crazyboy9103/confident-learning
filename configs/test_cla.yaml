@@ -16,7 +16,7 @@ defaults:
 seed: 42
 num_folds: 4
 task_name: ramen
-num_epochs: 1
+num_epochs: 12
 cl_method: cl # cl, pl
 cl_score_method: self_confidence # self_confidence, normalized_margin
 
@@ -39,7 +39,7 @@ data:
 
 model:
   optimizer:
-    lr: 0.001
+    lr: 0.0001
     weight_decay: 0.001
   
   scheduler:

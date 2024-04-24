@@ -9,8 +9,8 @@ from omegaconf import DictConfig
 import pandas as pd
 import wandb 
 
-from conflearn.detection import Detection
-# from utils import classification_evaluation
+from src.conflearn.detection import Detection
+from src.eval_utils import roc_evaluation
 
 def prepare_for_conflearn(target_dict, pred_dict):
     for k, v in pred_dict.items():
@@ -107,7 +107,6 @@ def main(cfg: DictConfig):
 
         images = data_module.pred_images()
         accum_images.extend(images)
-        break 
 
     for target, pred in zip(accum_targets, accum_preds):
         prepare_for_conflearn(target, pred)
@@ -149,6 +148,16 @@ def main(cfg: DictConfig):
         ) for i in range(len(accum_images))]
     })
     logger.experiment.log({"result": wandb.Table(dataframe=df)})
+
+    aucroc, best_threshold, roc_curve_fig = roc_evaluation(noisy_labels, pooled_scores)
+
+    logger.experiment.log({
+        'aucroc': aucroc,
+        'best_threshold': best_threshold,
+        'roc_curve': wandb.Image(roc_curve_fig)
+    })
+
+
 
 if __name__ == '__main__':
     main()

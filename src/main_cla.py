@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 import wandb 
 
-from conflearn.classification import Classification
-from utils import classification_evaluation
+from src.conflearn.classification import Classification
+from src.eval_utils import classification_evaluation
 
 @hydra.main(version_base=None, config_path="../configs", config_name="test_cla.yaml")
 def main(cfg: DictConfig):

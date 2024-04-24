@@ -16,11 +16,11 @@ defaults:
 seed: 42
 num_folds: 4
 task_name: chocoball
-num_epochs: 1
+num_epochs: 12
 alpha: 0.1
 badloc_min_confidence: 0.5
 min_confidence: 0.95
-pooling: True
+pooling: true
 softmin_temperature: 0.1 
 
 paths:
@@ -41,22 +41,22 @@ data:
   test_transform:
     _target_: src.transforms.detection.get_transform
 
-  noise_type: overlook
-  noise_config: 
-    _target_: src.data.cocodetection.OverlookNoiseConfig
-    prob: 0.1
+  # noise_type: overlook
+  # noise_config: 
+  #   _target_: src.data.cocodetection.OverlookNoiseConfig
+  #   prob: 0.1
 
   # noise_type: badloc
   # noise_config: 
   #   _target_: src.data.cocodetection.BadLocNoiseConfig
   #   prob: 0.1
-  #   max_pixel: 20
+  #   max_pixel: 100
 
-  # noise_type: swap
-  # noise_config: 
-  #   _target_: src.data.cocodetection.SwapNoiseConfig
-  #   num_classes_to_swap: 3
-  #   prob: 0.1 
+  noise_type: swap
+  noise_config: 
+    _target_: src.data.cocodetection.SwapNoiseConfig
+    num_classes_to_swap: 3
+    prob: 0.1 
 
 model:
   optimizer:

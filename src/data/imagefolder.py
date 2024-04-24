@@ -5,7 +5,7 @@ from itertools import combinations
 import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
-from torchvision.transforms import v2 as Tv2
+from torchvision.transforms import v2
 from sklearn.model_selection import StratifiedKFold
 
 from .utils import SubsetWithTransform
@@ -183,7 +183,7 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
         # remove the transform to get the original images
         transform = self.data_pred.transform
         # resize the images to a fixed size for visualization
-        self.data_pred.transform = Tv2.Resize((480, 480))
+        self.data_pred.transform = v2.Resize((480, 480))
         images = [image for image, _ in self.data_pred]
         # restore the original transform
         self.data_pred.transform = transform

@@ -4,7 +4,7 @@
 # order of defaults determines the order in which configs override each other
 defaults:
   - paths: default
-  - data: coco
+  - data: coco_seg
   - model: fcn
   - callbacks: default
   - logger: wandb # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
@@ -16,7 +16,9 @@ defaults:
 seed: 42
 num_folds: 4
 task_name: battery
-num_epochs: 10
+num_epochs: 4
+pooling: true
+softmin_temperature: 0.1
 
 paths:
   root_dir: /workspace
@@ -25,7 +27,7 @@ paths:
   output_dir: /workspace/outputs
 
 data: 
-  batch_size: 32
+  batch_size: 16
   train_transform:
     _target_: src.transforms.segmentation.get_transform
     base_size: 520
@@ -34,16 +36,14 @@ data:
 
   valid_transform:
     _target_: src.transforms.segmentation.get_transform
-    base_size: 520
 
   test_transform:
     _target_: src.transforms.segmentation.get_transform
-    base_size: 520
 
 model:
   optimizer:
-    lr: 0.001
-    weight_decay: 0.001
+    lr: 0.0001
+    weight_decay: 0.0001
   
   scheduler:
     _target_: torch.optim.lr_scheduler.CosineAnnealingLR
@@ -60,7 +60,8 @@ logger:
 
 trainer:
   max_epochs: ${num_epochs}
-  deterministic: true
+  deterministic: false # for ignore_index in nn.CrossEntropyLoss() to work, deterministic should be False
   num_sanity_val_steps: 0
   precision: 16-mixed
   log_every_n_steps: 1
+  fast_dev_run: false

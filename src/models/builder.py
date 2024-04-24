@@ -30,7 +30,7 @@ def retinanet_builder(num_classes, trainable_backbone_layers = 3, **kwargs):
     :param kwargs: additional arguments to torchvision.models.detection.retinanet.RetinaNet
     :return: RetinaNet model
     """
-    assert 0 <= trainable_backbone_layers <= 5
+    # assert 0 <= trainable_backbone_layers <= 5
     weights = RetinaNet_ResNet50_FPN_Weights.COCO_V1
     model = retinanet_resnet50_fpn(weights=weights, trainable_backbone_layers=trainable_backbone_layers, **kwargs)
     model.head = RetinaNetHead(in_channels=model.backbone.out_channels, num_anchors=model.anchor_generator.num_anchors_per_location()[0], num_classes=num_classes)

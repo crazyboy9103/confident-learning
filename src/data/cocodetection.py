@@ -1,8 +1,6 @@
 from typing import Any, Dict, List, Optional, Callable, Literal, Union
 import random
 from itertools import combinations
-from dataclasses import dataclass
-from enum import Enum
 
 import numpy as np
 import lightning.pytorch as pl
@@ -13,47 +11,11 @@ from torchvision.datasets import CocoDetection
 from torchvision.transforms.v2 import functional as F
 from torchvision.tv_tensors._dataset_wrapper import list_of_dicts_to_dict_of_lists
 from sklearn.model_selection import KFold
-import cv2
 
 from .utils import SubsetWithTransform
+from .utils import collate_fn, polygon_area, segmentation_to_mask
+from .utils import OverlookNoiseConfig, BadLocNoiseConfig, SwapNoiseConfig, NoiseType
 
-
-def polygon_area(polygon):
-    reshaped_polygon = np.array(polygon, dtype=np.int32).reshape((-1, 1, 2))
-    return cv2.contourArea(reshaped_polygon)
-
-def collate_fn(batch):
-    return tuple(zip(*batch))
-
-@dataclass
-class OverlookNoiseConfig:
-    prob: float = 0.05
-
-@dataclass
-class BadLocNoiseConfig:
-    prob: float = 0.05
-    max_pixel: int = 50
-
-@dataclass
-class SwapNoiseConfig:
-    num_classes_to_swap: int = 3
-    prob: float = 0.05
-
-class NoiseType(Enum):
-    NORMAL: int = 0
-    OVERLOOK: int = 1
-    BADLOC: int = 2
-    SWAP: int = 3
-
-def segmentation_to_mask(segmentation, *, canvas_size):
-    from pycocotools import mask
-
-    segmentation = (
-        mask.frPyObjects(segmentation, *canvas_size)
-        if isinstance(segmentation, dict)
-        else mask.merge(mask.frPyObjects(segmentation, *canvas_size))
-    )
-    return torch.from_numpy(mask.decode(segmentation))
 class NoisyCocoDetection(CocoDetection):
     def __getitem__(self, index: int):
         # Refer to https://pytorch.org/vision/stable/generated/torchvision.datasets.wrap_dataset_for_transforms_v2.html
@@ -62,10 +24,19 @@ class NoisyCocoDetection(CocoDetection):
         image = self._load_image(image_id)
         target = self._load_target(image_id)
 
-        if not target:
-            return image, dict(image_id=image_id)
-
         canvas_size = tuple(F.get_size(image))
+
+        if not target:
+            target = {"image_id": image_id}
+
+            # For semantic segmentation, if the target is empty, we need to create an empty mask, i.e. a tensor of zeros
+            target["masks"] = tv_tensors.Mask(
+                torch.zeros(1, *canvas_size, dtype=torch.int64)
+            )
+            target["noisy_labels"] = torch.tensor([False,], dtype=torch.bool)
+            target["noisy_label_types"] = torch.tensor([NoiseType.NORMAL.value,], dtype=torch.int64)
+            return image, target
+        
         batched_target = list_of_dicts_to_dict_of_lists(target)
 
         target = {"image_id": image_id}
@@ -78,13 +49,21 @@ class NoisyCocoDetection(CocoDetection):
             ),
             new_format=tv_tensors.BoundingBoxFormat.XYXY,
         )
+
+        # segmentation_to_mask(segmentation, canvas_size=canvas_size) is a binary mask of shape (height, width)
+        # We multiply it by category_id to get a mask of shape (height, width) with the category_id as the pixel value
+        # For semantic segmentation, we want the mask to be of shape (1, height, width) with the pixel value as the category_id
+        # Therefore, we stack the masks and take the maximum value along the 0th dimension to get the final mask 
+        # Neuro-T uses minimum value, but here we assume that there is no overlap between the masks (though there might be incorrect cases) 
+        # so it does not matter whether we use minimum or maximums
+        # The reason why we do not use minimum is that we want to keep 255 which is ignored in the loss function
         target["masks"] = tv_tensors.Mask(
             torch.stack(
                 [
-                    segmentation_to_mask(segmentation, canvas_size=canvas_size)
-                    for segmentation in batched_target["segmentation"]
+                    segmentation_to_mask(segmentation, canvas_size=canvas_size) * category_id
+                    for segmentation, category_id in zip(batched_target["segmentation"], batched_target["category_id"])
                 ]
-            ),
+            ).max(dim=0, keepdim=True).values
         )
         target["labels"] = torch.tensor(batched_target["category_id"])
         target["noisy_labels"] = torch.tensor(batched_target["noisy_label"])
@@ -205,7 +184,6 @@ class NoisyCocoDetection(CocoDetection):
                     w = x2 - x1
                     h = y2 - y1
 
-                    # ann["area"] = w * h
                     ann["bbox"] = [x1, y1, w, h]
 
                     # Move the segmentation
@@ -360,7 +338,7 @@ class NoisyCocoDataModule(pl.LightningDataModule):
         """
         return DataLoader(
             dataset=self.data_val,
-            batch_size=self.batch_size_per_device,
+            batch_size=1,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
@@ -370,7 +348,7 @@ class NoisyCocoDataModule(pl.LightningDataModule):
     def predict_dataloader(self) -> DataLoader[Any]:
         return DataLoader(
             dataset=self.data_pred,
-            batch_size=self.batch_size_per_device,
+            batch_size=1,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,

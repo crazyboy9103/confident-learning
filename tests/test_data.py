@@ -1,6 +1,7 @@
 import sys
 sys.path.append("..")
 
+import torch
 import lightning.pytorch as pl 
 
 import hydra 
@@ -14,7 +15,25 @@ def main():
         # for noise_type in ["overlook", "badloc", "swap"]:
         #     test_noisy_cocodetection("/datasets/conflearn/seg/battery", noise_type)
         # test_noisy_imagefolder_data("/datasets/conflearn/cla/ramen_processed_data")
-        test_coco_detection("/datasets/conflearn/det/chocoball")
+        # test_coco_detection("/datasets/conflearn/det/chocoball")
+        test_coco_segmentation("/datasets/conflearn/seg/battery")
+
+def test_coco_segmentation(data_root_dir: str):
+    cfg = hydra.compose(config_name="coco_seg", overrides=[f"root={data_root_dir}/images", f"annFile={data_root_dir}/label.json"])
+    num_folds = 4
+    data: pl.LightningDataModule = hydra.utils.instantiate(cfg, num_folds=num_folds)
+    
+    datamodules = [data(fold_index=i) for i in range(num_folds)]
+
+    for datamodule in datamodules:
+        datamodule.setup()
+        loader = datamodule.train_dataloader()
+        for image, target in loader:
+            for im, ann in zip(image, target):
+                assert torch.unique(ann['masks'], return_counts=True)[1].sum() == torch.prod(torch.tensor(im.shape[1:]))
+                # temp = torch.sum(torch.stack([ann['masks']]), dim=0)
+                # print(temp.shape, torch.unique(temp))
+
 def test_coco_detection(data_root_dir: str):
     cfg = hydra.compose(config_name="coco", overrides=[f"root={data_root_dir}/images", f"annFile={data_root_dir}/label.json"])
     num_folds = 4
@@ -27,10 +46,7 @@ def test_coco_detection(data_root_dir: str):
         loader = datamodule.train_dataloader()
         for image, target in loader:
             for ann in target:
-                x1, y1, x2, y2 = ann["boxes"].unbind(1)
-                if (x1 == x2).any() or (y1 == y2).any():
-                    print("Bad box", ann)
-        break
+                print(ann['masks'].shape)
 
 def test_noisy_imagefolder_data(data_root_dir: str):
     cfg = hydra.compose(config_name="imagefolder", overrides=[f"root={data_root_dir}"])

@@ -1,19 +1,40 @@
 import sys
 sys.path.append("..")
+from itertools import chain
 
 import torch
 import lightning.pytorch as pl 
 import hydra 
 from omegaconf import DictConfig
-import numpy as np
 import pandas as pd
-from PIL import Image
 import wandb 
 
-from conflearn.classification import Classification
-from utils import classification_evaluation
+from conflearn.segmentation import Segmentation
+from src.eval_utils import roc_evaluation
 
-@hydra.main(version_base=None, config_path="../configs", config_name="test_cla.yaml")
+def prepare_for_conflearn(target_dict, pred_prob):
+    self_conf = torch.gather(pred_prob, dim=0, index=target_dict["masks"].long())
+    self_conf = self_conf.squeeze(0)
+    return self_conf.numpy()
+
+
+def parse_masks_for_wandb(target_mask_per_image, pred_mask_per_image, class_labels):
+    # explicitly cast to int and float to avoid serialization issues
+    predictions = {
+        "mask_data": pred_mask_per_image,
+        "class_labels": class_labels
+    }
+
+    ground_truths = {
+        "mask_data": target_mask_per_image,
+        "class_labels": class_labels
+    }
+    return {
+        "predictions": predictions,
+        "ground_truths": ground_truths
+    }
+    
+@hydra.main(version_base=None, config_path="../configs", config_name="test_seg.yaml")
 def main(cfg: DictConfig):
     pl.seed_everything(cfg.seed, workers=True)
     torch.set_float32_matmul_precision("medium")
@@ -25,23 +46,22 @@ def main(cfg: DictConfig):
 
     num_folds: int = cfg.get("num_folds", 4)
     
-    accum_images = []
     accum_targets = []
-    accum_probs = []
-    accum_swapped_labels = []
+    accum_preds = []
+    accum_images = []
 
     for k in range(num_folds):
         data_module = data(fold_index=k)
         data_module.setup()
 
-        model_instance = model(fold=k, num_classes=data_module.num_classes)
+        model_instance = model(fold=k, num_classes=data_module.num_classes + 1)
 
         callbacks = []
         for callback_name, callback_cfg in cfg.callbacks.items():
             callback: pl.Callback = hydra.utils.instantiate(callback_cfg)
 
             if callback_name == "model_checkpoint":
-                callback = callback(filename=f"cla_model_{cfg.task_name}_{k}", monitor=f"valid_acc_{k}", mode="max")
+                callback = callback(filename=f"seg_model_{cfg.task_name}_{k}", monitor=f"valid_acc_{k}", mode="max")
 
             callbacks.append(callback)
 
@@ -49,67 +69,58 @@ def main(cfg: DictConfig):
         trainer_instance.fit(model_instance, datamodule=data_module)
         preds = trainer_instance.predict(model_instance, datamodule=data_module)
         
-        targets = torch.cat([result[0] for result in preds], dim=0)
-        probs = torch.cat([result[1] for result in preds], dim=0)
+        targets = [result[0] for result in preds]
+        preds = [result[1] for result in preds]
 
-        accum_targets.append(targets)
-        accum_probs.append(probs)
+        targets = list(chain.from_iterable(targets))
+        preds = list(chain.from_iterable(preds))
 
-        swapped_labels = data_module.pred_swapped_labels()
-        # extend swapped_labels as they are not batched
-        accum_swapped_labels.extend(swapped_labels)
-
+        accum_targets.extend(targets)
+        accum_preds.extend(preds)          
+        
         images = data_module.pred_images()
         accum_images.extend(images)
-    
-    targets = torch.cat(accum_targets, dim=0).numpy()
-    probs = torch.cat(accum_probs, dim=0).numpy()
-    preds = np.argmax(probs, axis=1)
-    swapped_labels = np.array(accum_swapped_labels)
-    images = [image.transpose(1, 2, 0) for image in images] # (C, H, W) -> (H, W, C)
-    pil_images = [Image.fromarray(image.astype(np.uint8)) for image in images]
 
-    decoded_targets = data_module.idx_to_class(targets)
-    decoded_preds = data_module.idx_to_class(preds)
+    # (W x H), (1 x H x W), (K+1 x H x W)
+    print(accum_images[0].size, accum_targets[0]["masks"].shape, accum_preds[0].shape)
 
-    # log the classification evaluation
-    # conf_mat_fig, cls_report = classification_evaluation(targets, preds)
-    # logger.experiment.log({"cls_confusion_matrix": wandb.Image(conf_mat_fig)})
-    # logger.experiment.log({
-    #     'cls_accuracy': cls_report['accuracy'],
-    #     'cls_macro_avg_precision': cls_report['macro avg']['precision'],
-    #     'cls_macro_avg_recall': cls_report['macro avg']['recall'],
-    #     'cls_macro_avg_f1': cls_report['macro avg']['f1-score'],
-    #     'cls_weighted_avg_precision': cls_report['weighted avg']['precision'],
-    #     'cls_weighted_avg_recall': cls_report['weighted avg']['recall'],
-    #     'cls_weighted_avg_f1': cls_report['weighted avg']['f1-score']
-    # })
+    self_confs = []
+    for target, pred in zip(accum_targets, accum_preds):
+        self_confs.append(prepare_for_conflearn(target, pred))
 
-    conflearn = Classification(targets, probs, data_module.num_classes)
-    error_mask, scores = conflearn.get_result(cfg.cl_method, cfg.cl_score_method)
-    
-    # log the evaluation metrics for finding the label issues
-    conf_mat_fig, cls_report = classification_evaluation(swapped_labels, error_mask)
-    logger.experiment.log({"conflearn_confusion_matrix": wandb.Image(conf_mat_fig)})
-    logger.experiment.log({
-        'conflearn_accuracy': cls_report['accuracy'],
-        'conflearn_macro_avg_precision': cls_report['macro avg']['precision'],
-        'conflearn_macro_avg_recall': cls_report['macro avg']['recall'],
-        'conflearn_macro_avg_f1': cls_report['macro avg']['f1-score'],
-        'conflearn_weighted_avg_precision': cls_report['weighted avg']['precision'],
-        'conflearn_weighted_avg_recall': cls_report['weighted avg']['recall'],
-        'conflearn_weighted_avg_f1': cls_report['weighted avg']['f1-score']
-    })
+    conflearn = Segmentation(self_confs)
+    scores = conflearn.get_result(cfg.pooling, cfg.softmin_temperature)
+    # for targets of each image, we take the image is noisy
+    # if any of the annotations for that image is a noisy label 
+    # otherwise, we take the image is normal 
+    noisy_labels = [any(target["noisy_labels"]) for target in accum_targets]
+    class_map = data_module.dataset.classes # {1: {"id": 1, "name": "person"}, 2: {"id": 2, "name": "car"}}
+
+    class_labels = {class_id: cat["name"] for class_id, cat in class_map.items()}
+
+    class_set = wandb.Classes([
+        {"name": name, "id": class_id} for class_id, name in class_labels.items()
+    ])
 
     df = pd.DataFrame({
-        "given_label": decoded_targets,
-        "pred_label": decoded_preds,
-        "swapped": swapped_labels,
-        "label_issue": error_mask,
+        "noisy": noisy_labels,
         "label_score": scores,
-        "images": [wandb.Image(image) for image in pil_images]
+        "images": [wandb.Image(
+            accum_images[i],
+            masks = parse_masks_for_wandb(accum_targets[i]["masks"].squeeze(0).numpy(), accum_preds[i].argmax(0).numpy(), class_labels),
+            classes=class_set
+        ) for i in range(len(accum_images))]
     })
     logger.experiment.log({"result": wandb.Table(dataframe=df)})
+
+    aucroc, best_threshold, roc_curve_fig = roc_evaluation(noisy_labels, scores)
+
+    logger.experiment.log({
+        'aucroc': aucroc,
+        'best_threshold': best_threshold,
+        'roc_curve': wandb.Image(roc_curve_fig)
+    })
+    
 
 if __name__ == '__main__':
     main()

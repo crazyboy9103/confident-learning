@@ -1,14 +1,10 @@
 import matplotlib.pyplot as plt
-import numpy as np
 from sklearn.metrics import auc, roc_curve, classification_report, confusion_matrix, ConfusionMatrixDisplay
 
 def roc_evaluation(targets, probs):
-    # label_score=1-probability of the label being a label issue
-    # 1-label_score=probability of the label being a label issue (i.e. swapped label)
-    pred_probs = 1-lab.get_issues(label_key).label_score
-    # noisy_label is 1 if the label is swapped, 0 otherwise
-    gts = lab.data[noisy_label_key]
-    fpr, tpr, thresholds = roc_curve(gts, pred_probs)
+    # 1-label_score=probability of the label being a label issue (i.e. noisy label)
+    pred_probs = [1-prob for prob in probs] if isinstance(probs, list) else 1-probs
+    fpr, tpr, thresholds = roc_curve(targets, pred_probs)
     aucroc = auc(fpr, tpr)
 
     # Youden's J statistic to find the best threshold

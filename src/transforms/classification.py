@@ -2,7 +2,7 @@
 from typing import Callable
 
 import torch
-from torchvision.transforms import v2 as Tv2
+from torchvision.transforms import v2
 from torchvision.transforms.functional import InterpolationMode
 from torchvision.models.efficientnet import EfficientNet_B0_Weights
 
@@ -21,38 +21,38 @@ class ClassificationPresetTrain:
         random_erase_prob=0.0,
     ):
         transforms = [
-            Tv2.PILToTensor(), 
-            Tv2.Resize(resize_size, interpolation=interpolation, antialias=True),
-            # Tv2.RandomResizedCrop(crop_size, interpolation=interpolation, antialias=True),
+            v2.PILToTensor(), 
+            v2.Resize(resize_size, interpolation=interpolation, antialias=True),
+            # v2.RandomResizedCrop(crop_size, interpolation=interpolation, antialias=True),
         ]
         if hflip_prob > 0:
-            transforms.append(Tv2.RandomHorizontalFlip(hflip_prob))
+            transforms.append(v2.RandomHorizontalFlip(hflip_prob))
 
         if auto_augment_policy is not None:
             if auto_augment_policy == "ra":
-                transforms.append(Tv2.RandAugment(interpolation=interpolation, magnitude=ra_magnitude))
+                transforms.append(v2.RandAugment(interpolation=interpolation, magnitude=ra_magnitude))
 
             elif auto_augment_policy == "ta_wide":
-                transforms.append(Tv2.TrivialAugmentWide(interpolation=interpolation))
+                transforms.append(v2.TrivialAugmentWide(interpolation=interpolation))
 
             elif auto_augment_policy == "augmix":
-                transforms.append(Tv2.AugMix(interpolation=interpolation, severity=augmix_severity))
+                transforms.append(v2.AugMix(interpolation=interpolation, severity=augmix_severity))
 
             else:
-                aa_policy = Tv2.AutoAugmentPolicy(auto_augment_policy)
-                transforms.append(Tv2.AutoAugment(policy=aa_policy, interpolation=interpolation))
+                aa_policy = v2.AutoAugmentPolicy(auto_augment_policy)
+                transforms.append(v2.AutoAugment(policy=aa_policy, interpolation=interpolation))
 
         transforms += [
-            Tv2.ToDtype(torch.float, scale=True),
-            Tv2.Normalize(mean=mean, std=std),
+            v2.ToDtype(torch.float, scale=True),
+            v2.Normalize(mean=mean, std=std),
         ]
         
         if random_erase_prob > 0:
-            transforms.append(Tv2.RandomErasing(p=random_erase_prob))
+            transforms.append(v2.RandomErasing(p=random_erase_prob))
 
-        transforms.append(Tv2.ToPureTensor())
+        transforms.append(v2.ToPureTensor())
 
-        self.transforms = Tv2.Compose(transforms)
+        self.transforms = v2.Compose(transforms)
 
     def __call__(self, image, target):
         return self.transforms(image), target 
@@ -67,14 +67,14 @@ class ClassificationPresetEval:
         interpolation=InterpolationMode.BILINEAR,
     ):
         transforms = [
-            Tv2.PILToTensor(),
-            Tv2.Resize(resize_size, interpolation=interpolation, antialias=True),
-            Tv2.ToDtype(torch.float, scale=True),
-            Tv2.Normalize(mean=mean, std=std),
-            Tv2.ToPureTensor()
+            v2.PILToTensor(),
+            v2.Resize(resize_size, interpolation=interpolation, antialias=True),
+            v2.ToDtype(torch.float, scale=True),
+            v2.Normalize(mean=mean, std=std),
+            v2.ToPureTensor()
         ]
 
-        self.transforms = Tv2.Compose(transforms)
+        self.transforms = v2.Compose(transforms)
 
     def __call__(self, image, target):
         return self.transforms(image), target
