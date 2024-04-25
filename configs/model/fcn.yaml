@@ -17,3 +17,4 @@ scheduler:
   verbose: false
 
 compile: true
+aux_loss: true

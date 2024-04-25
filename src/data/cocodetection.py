@@ -28,11 +28,11 @@ class NoisyCocoDetection(CocoDetection):
 
         if not target:
             target = {"image_id": image_id}
-
-            # For semantic segmentation, if the target is empty, we need to create an empty mask, i.e. a tensor of zeros
-            target["masks"] = tv_tensors.Mask(
-                torch.zeros(1, *canvas_size, dtype=torch.int64)
-            )
+            if self.task == "seg":
+                # For semantic segmentation, if the target is empty, we need to create an empty mask, i.e. a tensor of zeros
+                target["masks"] = tv_tensors.Mask(
+                    torch.zeros(1, *canvas_size, dtype=torch.int64)
+                )
             target["noisy_labels"] = torch.tensor([False,], dtype=torch.bool)
             target["noisy_label_types"] = torch.tensor([NoiseType.NORMAL.value,], dtype=torch.int64)
             return image, target
@@ -41,14 +41,15 @@ class NoisyCocoDetection(CocoDetection):
 
         target = {"image_id": image_id}
 
-        target["boxes"] = F.convert_bounding_box_format(
-            tv_tensors.BoundingBoxes(
-                batched_target["bbox"],
-                format=tv_tensors.BoundingBoxFormat.XYWH,
-                canvas_size=canvas_size,
-            ),
-            new_format=tv_tensors.BoundingBoxFormat.XYXY,
-        )
+        if self.task == "det":
+            target["boxes"] = F.convert_bounding_box_format(
+                tv_tensors.BoundingBoxes(
+                    batched_target["bbox"],
+                    format=tv_tensors.BoundingBoxFormat.XYWH,
+                    canvas_size=canvas_size,
+                ),
+                new_format=tv_tensors.BoundingBoxFormat.XYXY,
+            )
 
         # segmentation_to_mask(segmentation, canvas_size=canvas_size) is a binary mask of shape (height, width)
         # We multiply it by category_id to get a mask of shape (height, width) with the category_id as the pixel value
@@ -57,21 +58,23 @@ class NoisyCocoDetection(CocoDetection):
         # Neuro-T uses minimum value, but here we assume that there is no overlap between the masks (though there might be incorrect cases) 
         # so it does not matter whether we use minimum or maximums
         # The reason why we do not use minimum is that we want to keep 255 which is ignored in the loss function
-        target["masks"] = tv_tensors.Mask(
-            torch.stack(
-                [
-                    segmentation_to_mask(segmentation, canvas_size=canvas_size) * category_id
-                    for segmentation, category_id in zip(batched_target["segmentation"], batched_target["category_id"])
-                ]
-            ).max(dim=0, keepdim=True).values
-        )
+        if self.task == "seg":
+            target["masks"] = tv_tensors.Mask(
+                torch.stack(
+                    [
+                        segmentation_to_mask(segmentation, canvas_size=canvas_size) * category_id
+                        for segmentation, category_id in zip(batched_target["segmentation"], batched_target["category_id"])
+                    ]
+                ).max(dim=0, keepdim=True).values
+            )
         target["labels"] = torch.tensor(batched_target["category_id"])
         target["noisy_labels"] = torch.tensor(batched_target["noisy_label"])
         target["noisy_label_types"] = torch.tensor(batched_target["noisy_label_type"])
         return image, target
     
-    def __init__(self, type: Literal["overlook", "badloc", "swap"], config: Union[OverlookNoiseConfig, BadLocNoiseConfig, SwapNoiseConfig], *args, **kwargs):
+    def __init__(self, type: Literal["overlook", "badloc", "swap"], config: Union[OverlookNoiseConfig, BadLocNoiseConfig, SwapNoiseConfig], task, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.task = task
         random.seed(42) # fixed seed for reproducibility
         # CocoDetection uses self.coco.loadAnns(self.coco.getAnnIds(id)) to load the target, where 
         #   imgToAnns: imgToAnns['image_id'] = anns
@@ -238,6 +241,7 @@ class NoisyCocoDataModule(pl.LightningDataModule):
         train_transform: Callable = None, # for image augmentation Callable[PIL.Image]
         valid_transform: Callable = None, # for image augmentation Callable[PIL.Image]
         test_transform: Callable = None, # for image augmentation Callable[PIL.Image]
+        task: Literal["det", "seg"] = "det",
         noise_type: Literal["overlook", "badloc", "swap"] = "overlook",
         noise_config: Union[OverlookNoiseConfig, BadLocNoiseConfig, SwapNoiseConfig] = OverlookNoiseConfig(),
         fold_index: int = 0, # for k-fold cross validation
@@ -301,6 +305,7 @@ class NoisyCocoDataModule(pl.LightningDataModule):
             self.dataset = NoisyCocoDetection(
                 type=self.hparams.noise_type,
                 config=self.hparams.noise_config,
+                task=self.hparams.task,
                 root = self.hparams.root,
                 annFile = self.hparams.annFile, 
                 transform=None

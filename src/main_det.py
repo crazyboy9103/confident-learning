@@ -115,12 +115,12 @@ def main(cfg: DictConfig):
     badloc_scores, overlooked_scores, swapped_scores = conflearn.get_result(cfg.alpha, cfg.badloc_min_confidence, cfg.min_confidence, cfg.pooling, cfg.softmin_temperature)
     pooled_scores = [(s1 * s2 * s3) ** (1/3) for s1, s2, s3 in zip(badloc_scores, overlooked_scores, swapped_scores)]
 
-    # for targets of each image, we take the image is noisy
-    # if any of the annotations for that image is a noisy label 
-    # otherwise, we take the image is normal 
-    
+    # Consider the image is noisy if any of the annotations for that image is noisy 
+    # otherwise, the image is normal 
     noisy_labels = [any(target["noisy_labels"]) for target in accum_targets]
-    class_map = data_module.dataset.classes # {1: {"id": 1, "name": "person"}, 2: {"id": 2, "name": "car"}}
+
+    # class_map = {1: {"id": 1, "name": "person", "supercategory": "person"...}, 2: {"id": 2, "name": "car", "supercategory": "vehicle"...}, ...}
+    class_map = data_module.dataset.classes 
 
     class_labels = {class_id: cat["name"] for class_id, cat in class_map.items()}
 

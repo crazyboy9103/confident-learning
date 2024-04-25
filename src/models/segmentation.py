@@ -14,11 +14,12 @@ class SegmentationModel(pl.LightningModule):
         scheduler: optim.lr_scheduler, 
         fold: int,
         compile: bool = False, 
+        aux_loss: bool = True
     ):
         super().__init__()
         self.save_hyperparameters()
 
-        self.net = fcn_builder(num_classes)
+        self.net = fcn_builder(num_classes, aux_loss)
 
         self.train_jac = JaccardIndex(
             task="multiclass",

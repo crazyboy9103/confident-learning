@@ -36,15 +36,14 @@ def retinanet_builder(num_classes, trainable_backbone_layers = 3, **kwargs):
     model.head = RetinaNetHead(in_channels=model.backbone.out_channels, num_anchors=model.anchor_generator.num_anchors_per_location()[0], num_classes=num_classes)
     return model
 
-def fcn_builder(num_classes):
+def fcn_builder(num_classes, aux_loss=True):
     """
     Build COCO pretrained FCN model with ResNet50 backbone, with specified number of classes
     :param num_classes: number of classes
     :return: FCN model
     """
     weights = FCN_ResNet50_Weights.COCO_WITH_VOC_LABELS_V1
-    model = fcn_resnet50(weights=weights) # does not use **kwargs internally, so no need to pass
-    # uses aux for pretrained
+    model = fcn_resnet50(weights=weights, aux_loss=aux_loss)
     model.aux_classifier = FCNHead(1024, num_classes)
     model.classifier = FCNHead(2048, num_classes)
     return model

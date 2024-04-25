@@ -72,3 +72,4 @@ wandb/
 outputs/
 *.pt
 *.png
+multirun/

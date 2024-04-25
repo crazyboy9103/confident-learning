@@ -69,18 +69,6 @@ def main(cfg: DictConfig):
     decoded_targets = [data_module.idx_to_class(idx) for idx in targets]
     decoded_preds = [data_module.idx_to_class(idx) for idx in preds]
 
-    # log the classification evaluation
-    # conf_mat_fig, cls_report = classification_evaluation(targets, preds)
-    # logger.experiment.log({"cls_confusion_matrix": wandb.Image(conf_mat_fig)})
-    # logger.experiment.log({
-    #     'cls_accuracy': cls_report['accuracy'],
-    #     'cls_macro_avg_precision': cls_report['macro avg']['precision'],
-    #     'cls_macro_avg_recall': cls_report['macro avg']['recall'],
-    #     'cls_macro_avg_f1': cls_report['macro avg']['f1-score'],
-    #     'cls_weighted_avg_precision': cls_report['weighted avg']['precision'],
-    #     'cls_weighted_avg_recall': cls_report['weighted avg']['recall'],
-    #     'cls_weighted_avg_f1': cls_report['weighted avg']['f1-score']
-    # })
     print("Computing the label issues...")
     conflearn = Classification(targets, probs, data_module.num_classes)
     error_mask, scores = conflearn.get_result(cfg.cl_method, cfg.cl_score_method)
@@ -93,16 +81,15 @@ def main(cfg: DictConfig):
     logger.experiment.log({"conflearn_confusion_matrix": wandb.Image(conf_mat_fig)})
     logger.experiment.log({
         'conflearn_accuracy': cls_report['accuracy'],
-        'conflearn_macro_avg_precision': cls_report['macro avg']['precision'],
-        'conflearn_macro_avg_recall': cls_report['macro avg']['recall'],
-        'conflearn_macro_avg_f1': cls_report['macro avg']['f1-score'],
-        'conflearn_weighted_avg_precision': cls_report['weighted avg']['precision'],
-        'conflearn_weighted_avg_recall': cls_report['weighted avg']['recall'],
-        'conflearn_weighted_avg_f1': cls_report['weighted avg']['f1-score']
+        # 'conflearn_macro_avg_precision': cls_report['macro avg']['precision'],
+        # 'conflearn_macro_avg_recall': cls_report['macro avg']['recall'],
+        # 'conflearn_macro_avg_f1': cls_report['macro avg']['f1-score'],
+        # 'conflearn_weighted_avg_precision': cls_report['weighted avg']['precision'],
+        # 'conflearn_weighted_avg_recall': cls_report['weighted avg']['recall'],
+        # 'conflearn_weighted_avg_f1': cls_report['weighted avg']['f1-score']
     })
 
     print("Logging the results...")
-    print(len(decoded_targets), len(decoded_preds), len(swapped_labels), len(error_mask), len(scores), len(accum_images), accum_images[0].size)
     df = pd.DataFrame({
         "given_label": decoded_targets,
         "pred_label": decoded_preds,

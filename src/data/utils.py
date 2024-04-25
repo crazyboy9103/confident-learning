@@ -8,17 +8,17 @@ from torch.utils.data import Dataset
 
 @dataclass
 class OverlookNoiseConfig:
-    prob: float = 0.05
+    prob: float = 0.1
 
 @dataclass
 class BadLocNoiseConfig:
-    prob: float = 0.05
+    prob: float = 0.1
     max_pixel: int = 50
 
 @dataclass
 class SwapNoiseConfig:
     num_classes_to_swap: int = 3
-    prob: float = 0.05
+    prob: float = 0.1
 
 class NoiseType(Enum):
     NORMAL: int = 0

@@ -1,6 +1,6 @@
 defaults:
   - model_checkpoint
-  - model_summary
+  # - model_summary
   - rich_progress_bar
   - lr_monitor
   
@@ -10,6 +10,6 @@ model_checkpoint:
   auto_insert_metric_name: false
   enable_version_counter: false
   
-model_summary:
-  max_depth: -1
+# model_summary:
+#   max_depth: -1
 

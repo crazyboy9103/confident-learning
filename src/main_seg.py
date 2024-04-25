@@ -17,7 +17,6 @@ def prepare_for_conflearn(target_dict, pred_prob):
     self_conf = self_conf.squeeze(0)
     return self_conf.numpy()
 
-
 def parse_masks_for_wandb(target_mask_per_image, pred_mask_per_image, class_labels):
     # explicitly cast to int and float to avoid serialization issues
     predictions = {
@@ -90,9 +89,9 @@ def main(cfg: DictConfig):
 
     conflearn = Segmentation(self_confs)
     scores = conflearn.get_result(cfg.pooling, cfg.softmin_temperature)
-    # for targets of each image, we take the image is noisy
-    # if any of the annotations for that image is a noisy label 
-    # otherwise, we take the image is normal 
+
+    # Consider the image is noisy if any of the annotations for that image is noisy 
+    # otherwise, the image is normal 
     noisy_labels = [any(target["noisy_labels"]) for target in accum_targets]
     class_map = data_module.dataset.classes # {1: {"id": 1, "name": "person"}, 2: {"id": 2, "name": "car"}}
 

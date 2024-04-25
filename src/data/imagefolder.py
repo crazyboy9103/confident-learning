@@ -9,14 +9,14 @@ from torchvision.transforms import v2
 from sklearn.model_selection import StratifiedKFold
 
 from .utils import SubsetWithTransform
-
+from .utils import SwapNoiseConfig
 class NoisyImageFolder(ImageFolder):
-    def __init__(self, num_classes_to_swap = 3, swap_prob = 0.1, *args, **kwargs):
+    def __init__(self, noise_config: SwapNoiseConfig, *args, **kwargs):
         super().__init__(*args, **kwargs)
         random.seed(42) # fixed seed for reproducibility
 
         self.noisy_labels = [t for t in self.targets]
-        self.swap_labels(num_classes_to_swap, swap_prob)
+        self.swap_labels(noise_config.num_classes_to_swap, noise_config.prob)
 
     def swap_labels(self, num_classes_to_swap, swap_prob):
         """Flips the targets with a given probability.
@@ -69,6 +69,8 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
         test_transform: Callable = None, # for image augmentation Callable[PIL.Image]
         num_classes_to_swap: int = 3, # for noisy labels
         swap_prob: float = 0.1, # for noisy labels
+        noise_type: str = "swap",
+        noise_config: SwapNoiseConfig = SwapNoiseConfig(),
         fold_index: int = 0, # for k-fold cross validation
         num_folds: int = 4, # for k-fold cross validation
     ) -> None:
@@ -86,6 +88,7 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
         :param fold_index: The index of the fold to use. Defaults to `0`.
         :param num_folds: The number of folds to use. Defaults to `4`.
         """
+        assert noise_type == "swap", f"Unsupported noise type: {noise_type}"
         super().__init__()
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
@@ -129,8 +132,7 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
         if not self.data_train and not self.data_val:            
             self.dataset = NoisyImageFolder(
                 root = self.hparams.root, 
-                num_classes_to_swap=self.hparams.num_classes_to_swap,
-                swap_prob=self.hparams.swap_prob, 
+                noise_config = self.hparams.noise_config,
                 transform=None
             )
             self.num_classes = len(self.dataset.classes)

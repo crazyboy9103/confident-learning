@@ -3,6 +3,7 @@
 # specify here default configuration
 # order of defaults determines the order in which configs override each other
 defaults:
+  - conflearn: overlook
   - paths: default
   - data: coco_seg
   - model: fcn
@@ -16,7 +17,7 @@ defaults:
 seed: 42
 num_folds: 4
 task_name: battery
-num_epochs: 4
+num_epochs: 12
 pooling: true
 softmin_temperature: 0.1
 
@@ -40,9 +41,12 @@ data:
   test_transform:
     _target_: src.transforms.segmentation.get_transform
 
+  noise_type: ${conflearn.noise_type}
+  noise_config: ${conflearn.noise_config}
+
 model:
   optimizer:
-    lr: 0.0001
+    lr: 0.001
     weight_decay: 0.0001
   
   scheduler:
@@ -52,10 +56,11 @@ model:
     last_epoch: -1
   
   compile: true
-
+  aux_loss: true
+  
 logger:
   project: "confident-learning"
-  tags: ["segmentation", "fcn", "battery"]
+  tags: ["segmentation", "fcn", "${task_name}", "${data.noise_type}"]
   save_dir: /workspace/outputs
 
 trainer:

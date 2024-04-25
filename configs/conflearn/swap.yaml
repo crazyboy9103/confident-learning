@@ -1,0 +1,5 @@
+noise_type: swap
+noise_config: 
+  _target_: src.data.utils.SwapNoiseConfig
+  num_classes_to_swap: 3
+  prob: 0.1
