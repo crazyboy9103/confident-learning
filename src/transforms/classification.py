@@ -2,6 +2,7 @@
 from typing import Callable
 
 import torch
+from torch import nn
 from torchvision.transforms import v2
 from torchvision.transforms.functional import InterpolationMode
 from torchvision.models.efficientnet import EfficientNet_B0_Weights
@@ -23,7 +24,6 @@ class ClassificationPresetTrain:
         transforms = [
             v2.PILToTensor(), 
             v2.Resize(resize_size, interpolation=interpolation, antialias=True),
-            # v2.RandomResizedCrop(crop_size, interpolation=interpolation, antialias=True),
         ]
         if hflip_prob > 0:
             transforms.append(v2.RandomHorizontalFlip(hflip_prob))
@@ -65,7 +65,7 @@ class ClassificationPresetEval:
         mean=(0.485, 0.456, 0.406),
         std=(0.229, 0.224, 0.225),
         interpolation=InterpolationMode.BILINEAR,
-    ):
+    ):  
         transforms = [
             v2.PILToTensor(),
             v2.Resize(resize_size, interpolation=interpolation, antialias=True),

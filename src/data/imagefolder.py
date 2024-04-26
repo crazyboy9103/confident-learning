@@ -10,6 +10,7 @@ from sklearn.model_selection import StratifiedKFold
 
 from .utils import SubsetWithTransform
 from .utils import SwapNoiseConfig
+from .utils import uniform_size_collate_fn
 class NoisyImageFolder(ImageFolder):
     def __init__(self, noise_config: SwapNoiseConfig, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -157,6 +158,7 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=True,
+            collate_fn=uniform_size_collate_fn
         )
 
     def val_dataloader(self) -> DataLoader[Any]:
@@ -170,12 +172,13 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
+            collate_fn=uniform_size_collate_fn
         )
 
     def predict_dataloader(self) -> DataLoader[Any]:
         return DataLoader(
             dataset=self.data_pred,
-            batch_size=self.batch_size_per_device,
+            batch_size=1,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,

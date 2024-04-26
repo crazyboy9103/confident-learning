@@ -23,13 +23,10 @@ cl_score_method: self_confidence # self_confidence, normalized_margin
 resize_size: 224 
 
 paths:
-  root_dir: /workspace
   data_root_dir: /datasets/conflearn/cla/ramen_processed_data
-  log_dir: /workspace/logs
-  output_dir: /workspace/outputs
 
 data: 
-  batch_size: 64
+  batch_size: 32
   train_transform:
     resize_size: ${resize_size}
   
@@ -58,7 +55,7 @@ model:
 logger:
   project: "confident-learning"
   tags: ["classification", "efficientnet", "${task_name}"]
-  save_dir: /workspace/outputs
+  save_dir: ${paths.root_dir}/outputs
 
 trainer:
   max_epochs: ${num_epochs}

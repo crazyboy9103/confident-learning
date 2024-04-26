@@ -63,6 +63,7 @@ def parse_boxes_for_wandb(target_boxes_per_image, target_labels_per_image, pred_
     
 @hydra.main(version_base=None, config_path="../configs", config_name="test_det.yaml")
 def main(cfg: DictConfig):
+    print(cfg)
     pl.seed_everything(cfg.seed, workers=True)
     torch.set_float32_matmul_precision("medium")
 

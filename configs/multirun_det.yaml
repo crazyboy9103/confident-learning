@@ -7,4 +7,4 @@ hydra:
     params:
       conflearn: overlook,badloc,swap
       num_epochs: 12,24
-      model.optimizer.lr: 0.001,0.0001
+      model.optimizer.lr: 0.0001
