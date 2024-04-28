@@ -106,7 +106,11 @@ def main(cfg: DictConfig):
         "label_score": scores,
         "images": [wandb.Image(
             accum_images[i],
-            masks = parse_masks_for_wandb(accum_targets[i]["masks"].squeeze(0).numpy(), accum_preds[i].argmax(0).numpy(), class_labels),
+            masks = parse_masks_for_wandb(
+                accum_targets[i]["masks"].squeeze(0).numpy(), 
+                accum_preds[i].argmax(0).numpy(), 
+                class_labels
+            ),
             classes=class_set
         ) for i in range(len(accum_images))]
     })

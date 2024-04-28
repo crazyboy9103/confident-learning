@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Callable, Literal, Union
+from typing import Any, Dict, Optional, Callable, Literal, Union
 import random
 from itertools import combinations
 
@@ -41,6 +41,35 @@ class NoisyCocoDetection(CocoDetection):
 
         target = {"image_id": image_id}
 
+        # Filter out the annotations that are overlooked
+        if self.type == "overlook":
+            # If all the labels are overlooked, return a mask of zeros and empty boxes
+            if all(batched_target["noisy_label"]):
+                target["noisy_labels"] = torch.tensor(batched_target["noisy_label"])
+                target["noisy_label_types"] = torch.tensor(batched_target["noisy_label_type"])
+                if self.task == "seg":
+                    target["masks"] = tv_tensors.Mask(
+                        torch.zeros(1, *canvas_size, dtype=torch.int64)
+                    )
+                
+                if self.task == "det":
+                    target["boxes"] = tv_tensors.BoundingBoxes(
+                        torch.zeros(0, 4, dtype=torch.float32),
+                        format=tv_tensors.BoundingBoxFormat.XYXY,
+                        canvas_size=canvas_size
+                    )
+                target["labels"] = torch.tensor([], dtype=torch.int64)
+                return image, target
+
+            # If not, filter out the overlooked labels
+            if self.task == "seg":
+                batched_target["segmentation"] = [segmentation for segmentation, noisy_label in zip(batched_target["segmentation"], batched_target["noisy_label"]) if not noisy_label]
+
+            if self.task == "det":
+                batched_target["bbox"] = [bbox for bbox, noisy_label in zip(batched_target["bbox"], batched_target["noisy_label"]) if not noisy_label]
+        
+            batched_target["category_id"] = [category_id for category_id, noisy_label in zip(batched_target["category_id"], batched_target["noisy_label"]) if not noisy_label]
+
         if self.task == "det":
             target["boxes"] = F.convert_bounding_box_format(
                 tv_tensors.BoundingBoxes(
@@ -67,6 +96,7 @@ class NoisyCocoDetection(CocoDetection):
                     ]
                 ).max(dim=0, keepdim=True).values
             )
+
         target["labels"] = torch.tensor(batched_target["category_id"])
         target["noisy_labels"] = torch.tensor(batched_target["noisy_label"])
         target["noisy_label_types"] = torch.tensor(batched_target["noisy_label_type"])
@@ -124,27 +154,6 @@ class NoisyCocoDetection(CocoDetection):
                 for ann_id in ann_ids_overlook:
                     self.coco.anns[ann_id]["noisy_label"] = True
                     self.coco.anns[ann_id]["noisy_label_type"] = NoiseType.OVERLOOK.value
-
-                    ann = self.coco.anns[ann_id]
-
-                    # Fetch width and height for clipping within the image
-                    img = self.coco.imgs[ann["image_id"]]
-                    img_width, img_height = img["width"], img["height"]
-
-                    # Pick random box (x1, y1, x2, y2) to replace the original box
-                    x1 = random.randint(0, img_width-1)
-                    y1 = random.randint(0, img_height-1)
-                    x2 = random.randint(0, img_width-1)
-                    y2 = random.randint(0, img_height-1)
-
-                    x1, x2 = min(x1, x2), max(x1, x2)
-                    y1, y2 = min(y1, y2), max(y1, y2)
-                    w = x2 - x1
-                    h = y2 - y1
-
-                    ann["area"] = w * h
-                    ann["bbox"] = [x1, y1, w, h]
-                    ann["segmentation"] = [[x1, y1, x2, y1, x2, y2, x1, y2]]
 
             case "badloc":
                 assert isinstance(config, BadLocNoiseConfig)

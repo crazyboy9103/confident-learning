@@ -37,7 +37,11 @@ def gaussian_kernel_similarity(b1, b2, sigma=10):
     y1 = (b1[:, 1] + b1[:, 3]) / 2
     x2 = (b2[:, 0] + b2[:, 2]) / 2
     y2 = (b2[:, 1] + b2[:, 3]) / 2
-
+    
+    # [2, b1] -> [b1, 2], [2, b2] -> [b2, 2]
+    # c1, c2 = np.array([x1, y1]).T, np.array([x2, y2]).T
+    # [b1, 2, 1] - [b2, 2] -> [b1, b2, 2] -> [b1, b2]
+    # dist = np.linalg.norm(c1[:, None] - c2, axis=2)
     dist = np.sqrt((x1[:, None] - x2) ** 2 + (y1[:, None] - y2) ** 2)
     assert dist.shape == (b1.shape[0], b2.shape[0])
     return np.exp(-dist / sigma)
