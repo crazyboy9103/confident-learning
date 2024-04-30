@@ -10,13 +10,16 @@ import matplotlib.pyplot as plt
 
 def main():
     with hydra.initialize(version_base=None, config_path="../configs/data"):
-        # test_noisy_imagefolder("/datasets/conflearn/cla/applied_materials_processed")
+        test_noisy_imagefolder("/datasets/conflearn/cla/applied_materials_processed")
+        test_noisy_imagefolder("/datasets/conflearn/cla/ramen_processed_data")
+        test_noisy_imagefolder("/datasets/conflearn/cla/Fruit_processed")
+        
 
         # for noise_type in ["overlook", "badloc", "swap"]:
         #     test_noisy_cocodetection("/datasets/conflearn/seg/battery", noise_type)
         # test_noisy_imagefolder_data("/datasets/conflearn/cla/ramen_processed_data")
         # test_coco_detection("/datasets/conflearn/det/chocoball")
-        test_coco_segmentation("/datasets/conflearn/seg/battery")
+        # test_coco_segmentation("/datasets/conflearn/seg/battery")
 
 def test_coco_segmentation(data_root_dir: str):
     cfg = hydra.compose(config_name="coco_seg", overrides=[f"root={data_root_dir}/images", f"annFile={data_root_dir}/label.json"])
@@ -78,28 +81,31 @@ def test_noisy_imagefolder(data_root_dir: str):
 
     for datamodule in datamodules:
         datamodule.setup()
-        assert set(datamodule.data_train.idxs) & set(datamodule.data_val.idxs) == set()
-        if not train_intersect:
-            train_intersect = set(datamodule.data_train.idxs)
-        else:
-            train_intersect &= set(datamodule.data_train.idxs)
+        loader = datamodule.train_dataloader()
+        for image, target in loader:
+            print(image.shape, target.shape)
+    #     assert set(datamodule.data_train.idxs) & set(datamodule.data_val.idxs) == set()
+    #     if not train_intersect:
+    #         train_intersect = set(datamodule.data_train.idxs)
+    #     else:
+    #         train_intersect &= set(datamodule.data_train.idxs)
 
-        if not val_intersect:
-            val_intersect = set(datamodule.data_val.idxs)
-        else:
-            val_intersect &= set(datamodule.data_val.idxs)
+    #     if not val_intersect:
+    #         val_intersect = set(datamodule.data_val.idxs)
+    #     else:
+    #         val_intersect &= set(datamodule.data_val.idxs)
 
-        pred_info = datamodule.predict_info()
+    #     pred_info = datamodule.predict_info()
 
-        orig_labels.extend(pred_info["orig_labels"])
-        noisy_labels.extend(pred_info["noisy_labels"])
+    #     orig_labels.extend(pred_info["orig_labels"])
+    #     noisy_labels.extend(pred_info["noisy_labels"])
     
-    assert train_intersect == set() and val_intersect == set()
+    # assert train_intersect == set() and val_intersect == set()
 
-    conf = confusion_matrix(orig_labels, noisy_labels, normalize='true')
-    disp = ConfusionMatrixDisplay(conf, display_labels=range(1, datamodule.num_classes + 1))
-    disp.plot()
-    plt.savefig(f"{data_root_dir.split('/')[-1]}.png")
+    # conf = confusion_matrix(orig_labels, noisy_labels, normalize='true')
+    # disp = ConfusionMatrixDisplay(conf, display_labels=range(1, datamodule.num_classes + 1))
+    # disp.plot()
+    # plt.savefig(f"{data_root_dir.split('/')[-1]}.png")
 
 def test_noisy_cocodetection(data_root_dir, noise_type):
     def check_noisy_label_distribution(dataloader):

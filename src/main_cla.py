@@ -8,6 +8,7 @@ from omegaconf import DictConfig
 import numpy as np
 import pandas as pd
 import wandb 
+from cleanlab.filter import find_label_issues, get_label_quality_scores
 
 from src.conflearn.classification import Classification
 from src.eval_utils import classification_evaluation
@@ -73,20 +74,27 @@ def main(cfg: DictConfig):
     conflearn = Classification(targets, probs, data_module.num_classes)
     error_mask, scores = conflearn.get_result(cfg.cl_method, cfg.cl_score_method)
     
+    cleanlab_indices = find_label_issues(targets, probs)
+    cleanlab_error_mask = np.zeros_like(targets, dtype=bool)
+    cleanlab_error_mask[cleanlab_indices] = True
+    cleanlab_scores = get_label_quality_scores(targets, probs)
     print("Evaluating the label issues...")
-    print(swapped_labels.shape, error_mask.shape)
-    print(error_mask, error_mask)
     # log the evaluation metrics for finding the label issues
     conf_mat_fig, cls_report = classification_evaluation(swapped_labels, error_mask)
     logger.experiment.log({"conflearn_confusion_matrix": wandb.Image(conf_mat_fig)})
     logger.experiment.log({
         'conflearn_accuracy': cls_report['accuracy'],
-        # 'conflearn_macro_avg_precision': cls_report['macro avg']['precision'],
-        # 'conflearn_macro_avg_recall': cls_report['macro avg']['recall'],
-        # 'conflearn_macro_avg_f1': cls_report['macro avg']['f1-score'],
-        # 'conflearn_weighted_avg_precision': cls_report['weighted avg']['precision'],
-        # 'conflearn_weighted_avg_recall': cls_report['weighted avg']['recall'],
-        # 'conflearn_weighted_avg_f1': cls_report['weighted avg']['f1-score']
+        'conflearn_precision': cls_report['macro avg']['precision'],
+        'conflearn_recall': cls_report['macro avg']['recall'],
+        'conflearn_f1': cls_report['macro avg']['f1-score'],
+    })
+    cleanlab_conf_mat_fig, cleanlab_cls_report = classification_evaluation(swapped_labels, cleanlab_error_mask)
+    logger.experiment.log({"cleanlab_confusion_matrix": wandb.Image(cleanlab_conf_mat_fig)})
+    logger.experiment.log({
+        'cleanlab_accuracy': cleanlab_cls_report['accuracy'],
+        'cleanlab_precision': cleanlab_cls_report['macro avg']['precision'],
+        'cleanlab_recall': cleanlab_cls_report['macro avg']['recall'],
+        'cleanlab_f1': cleanlab_cls_report['macro avg']['f1-score'],
     })
 
     print("Logging the results...")
@@ -96,6 +104,8 @@ def main(cfg: DictConfig):
         "swapped": swapped_labels,
         "label_issue": error_mask,
         "label_score": scores,
+        "cleanlab_issue": cleanlab_error_mask,
+        "cleanlab_score": cleanlab_scores,
         "images": [wandb.Image(image) for image in accum_images]
     })
     logger.experiment.log({"result": wandb.Table(dataframe=df)})

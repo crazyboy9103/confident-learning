@@ -11,9 +11,9 @@ class Classification:
     def per_class_thresholds(self):
         thresholds = np.zeros(self.num_classes)
         for i in range(self.num_classes):
-            # Self-confidence of predictions whose GT label is i 
+            # self-confidences of predictions where GT is i
             p_i = self.preds[self.labels == i, i]
-            # Threshold is the mean of self-confidence
+            # mean of self-confidences as per class threshold
             thresholds[i] = np.mean(p_i)
 
         assert thresholds.nonzero()[0].shape[0] == self.num_classes, "Some classes have no predictions"
@@ -25,16 +25,14 @@ class Classification:
             method: 
                 1. pl: pseudo-labeling
                     Errors: pseudo-labels do not match with GT labels 
-                    Scores: confidence of pseudo-labels
                 2. cl: confident learning 
                     Errors: off-diagonal elements of the confident joint
-                    Scores: 
             score_method:
                 1. self_confidence: self-confidence of predictions
                 2. normalized_margin: p_y-p_{y'}, y'=argmax_k!=y p_k 
         Returns:
-            error_mask: boolean mask of errors
-            label_quality_scores: quality scores of pseudo-labels
+            error_mask: boolean mask of errors (True: error, False: correct) 
+            label_quality_scores: quality scores of labels (higher is more likely to be correct)
         """
         match method:
             case "pl":
@@ -49,7 +47,8 @@ class Classification:
                 for i in range(len(self.preds)):
                     indices = above_thresholds[i].nonzero()[0]
                     if len(indices) == 0:
-                        error_mask.append(True)
+                        # threshold 이상인 class가 없는 경우 무시
+                        error_mask.append(False)
                         continue
                     
                     j = indices[self.preds[i, indices].argmax()]

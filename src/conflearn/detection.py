@@ -16,9 +16,14 @@ class Detection:
             confident = pred_scores >= min_confidence
             matching = pred_labels == gt_label
 
+            # Compute and use the max similarity as the score for the prediction boxes that
+            #   1. are of the same class as the GT
+            #   2. have high confidence
+            #   3. overlap with the GT
             if any(matching & confident & overlapping):
                 score = similarity(pred_boxes[matching & confident & overlapping], gt_box, alpha).max()
-
+            
+            # If there is no prediction box that satisfies the above conditions, the score is 1 (correct)
             else:
                 score = 1.0
             
@@ -27,9 +32,13 @@ class Detection:
         return scores
     
     def overlooked_scores(self, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, min_similarity, min_confidence, alpha):
+        # If there is no GT, ignore all prediction boxes that have low confidence (nan)
+        # and score min_similarity * (1 - confidence) (overlooked) for the rest
         if len(gt_boxes) == 0:
-            scores = (pred_scores >= min_confidence).astype(float)
-            scores[scores == 0.0] = np.nan
+            scores = np.zeros_like(pred_scores)
+            high_confidence = pred_scores >= min_confidence
+            scores[high_confidence] = min_similarity * (1-pred_scores[high_confidence])
+            scores[~high_confidence] = np.nan
             return scores
         
         scores = []
@@ -38,14 +47,24 @@ class Detection:
             confident = predicted_confidence >= min_confidence
             matching = gt_labels == predicted_label
 
+            # If the predicted box has low confidence or overlaps with at least one GT, ignore it
+            # (in the latter case, the box will be scored in badloc_scores)
             if not confident or any(overlapping):
                 score = np.nan
 
             else:
+                # If there is no GT with same class as the predicted box, compute the score as
+                # min_similarity * (1 - confidence)
+                # Higher confidence or lower minimum similarity will result in lower score (more likely to be overlooked)
                 if not any(matching):
                     score = min_similarity * (1-predicted_confidence)
 
                 else:
+                    # If the predicted box  
+                    #   1. does not overlap with any GT
+                    #   2. has high confidence
+                    #   3. is of same class as at least one GT
+                    # Compute the max similarity as the score
                     score = similarity(predicted_box, gt_boxes[matching], alpha).max()
 
             scores.append(score)
@@ -55,13 +74,21 @@ class Detection:
     def swapped_scores(self, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, min_confidence, alpha):
         scores = []
         for gt_box, gt_label in zip(gt_boxes, gt_labels):
-            # Find predictions of different classes with high confidence
+            # Find the predicted boxes 
+            #   1. that have high confidence 
+            #   2. are of different class from the GT
             high_confidence_wrong_class = (pred_labels != gt_label) & (pred_scores > min_confidence)
+            
+            # If there is no such prediction box, the score is 1 (correct)
             if not any(high_confidence_wrong_class):
-                score = 1.0  # Default score when there are no high confidence wrong class predictions
+                score = 1.0  
 
             else:
                 wrong_class_boxes = pred_boxes[high_confidence_wrong_class]
+                # Compute the max similarity for the prediction boxes that satisfy the above conditions
+                # The score is 1 - max similarity (higher similarity means lower score)
+                # (the image contains prediction boxes that are of different class from the GT, 
+                # so if the prediction boxes are close enough to the GT, it is likely to be a swapped case)
                 score = 1 - similarity(gt_box, wrong_class_boxes, alpha).max()
             scores.append(score)
 
@@ -76,11 +103,13 @@ class Detection:
             pred_boxes = pred["boxes"]
             gt_boxes = label["boxes"]
             
-            # Skip if there are no predictions or GT boxes
+            # Ignore if there are neither prediction nor GT boxes
             if len(pred_boxes) == 0 or len(gt_boxes) == 0:
                 continue
             
             similarity_matrix = similarity(pred_boxes, gt_boxes, alpha=alpha)
+            
+            # Take only positive similarities
             positive_similarity = similarity_matrix[similarity_matrix > 0]
 
             if positive_similarity.size == 0:
@@ -116,6 +145,7 @@ class Detection:
             assert len(overlooked_scores_per_box) == len(pred_boxes)
             assert len(swapped_scores_per_box) == len(gt_boxes)
 
+            # Per-box scores to per-image score
             if pooling:
                 badloc_scores_per_box = softmin1d_pooling(badloc_scores_per_box, temperature=softmin_temperature)
                 overlooked_scores_per_box = softmin1d_pooling(overlooked_scores_per_box, temperature=softmin_temperature)

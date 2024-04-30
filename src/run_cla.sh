@@ -1,12 +1,10 @@
 #!/bin/bash
 
 # Define arrays for learning rates, epochs, task names, and data paths
-lr_values=(0.001 0.0001)
+lr_values=(0.001)
 epoch_values=(12 24)
-# task_names=("pill" "fruit" "ramen")
-# data_paths=("applied_materials_processed" "Fruit_processed" "ramen_processed_data")
-task_names=("fruit")
-data_paths=("Fruit_processed")
+task_names=("ramen" "fruit" "pill")
+data_paths=("ramen_processed_data" "Fruit_processed" "applied_materials_processed")
 # Calculate the number of tasks
 task_count=${#task_names[@]}
 

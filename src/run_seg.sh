@@ -4,8 +4,7 @@
 lr_values=(0.001 0.0001)
 eta_mins=(0 0.00001)
 epoch_values=(12)
-# noise_types=("overlook" "badloc" "swap")
-noise_types=("overlook")
+noise_types=("overlook" "badloc" "swap")
 task_names=("battery")
 data_paths=("battery")
 
