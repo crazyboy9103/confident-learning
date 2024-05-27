@@ -26,6 +26,7 @@ class NoisyCocoDetection(CocoDetection):
 
         canvas_size = tuple(F.get_size(image))
 
+        # If the target is empty, create an empty target
         if not target:
             target = {"image_id": image_id}
             if self.task == "seg":
@@ -38,12 +39,13 @@ class NoisyCocoDetection(CocoDetection):
             return image, target
         
         batched_target = list_of_dicts_to_dict_of_lists(target)
-
         target = {"image_id": image_id}
 
-        # Filter out the annotations that are overlooked
+        # Overlook must be dealt with as follows:
+        # If the noise type is overlook, it is possible that we remove all the labels from an image
+        # In such case, we need to return an empty mask or empty boxes, as required by the loss function
         if self.type == "overlook":
-            # If all the labels are overlooked, return a mask of zeros and empty boxes
+            # If all the labels are overlooked, return a mask of zeros for seg or empty boxes for det
             if all(batched_target["noisy_label"]):
                 target["noisy_labels"] = torch.tensor(batched_target["noisy_label"])
                 target["noisy_label_types"] = torch.tensor(batched_target["noisy_label_type"])
@@ -52,7 +54,7 @@ class NoisyCocoDetection(CocoDetection):
                         torch.zeros(1, *canvas_size, dtype=torch.int64)
                     )
                 
-                if self.task == "det":
+                elif self.task == "det":
                     target["boxes"] = tv_tensors.BoundingBoxes(
                         torch.zeros(0, 4, dtype=torch.float32),
                         format=tv_tensors.BoundingBoxFormat.XYWH,
@@ -61,11 +63,11 @@ class NoisyCocoDetection(CocoDetection):
                 target["labels"] = torch.tensor([], dtype=torch.int64)
                 return image, target
 
-            # If not, filter out the overlooked labels
+            # If only some of the labels are overlooked, filter out the overlooked labels
             if self.task == "seg":
                 batched_target["segmentation"] = [segmentation for segmentation, noisy_label in zip(batched_target["segmentation"], batched_target["noisy_label"]) if not noisy_label]
 
-            if self.task == "det":
+            elif self.task == "det":
                 batched_target["bbox"] = [bbox for bbox, noisy_label in zip(batched_target["bbox"], batched_target["noisy_label"]) if not noisy_label]
         
             batched_target["category_id"] = [category_id for category_id, noisy_label in zip(batched_target["category_id"], batched_target["noisy_label"]) if not noisy_label]
@@ -82,9 +84,9 @@ class NoisyCocoDetection(CocoDetection):
         # For semantic segmentation, we want the mask to be of shape (1, height, width) with the pixel value as the category_id
         # Therefore, we stack the masks and take the maximum value along the 0th dimension to get the final mask 
         # Neuro-T uses minimum value, but here we assume that there is no overlap between the masks (though there might be incorrect cases) 
-        # so it does not matter whether we use minimum or maximums
+        # so it does not matter whether we use minimum or maximum
         # The reason why we do not use minimum is that we want to keep 255 which is ignored in the loss function
-        if self.task == "seg":
+        elif self.task == "seg":
             target["masks"] = tv_tensors.Mask(
                 torch.stack(
                     [
@@ -101,30 +103,26 @@ class NoisyCocoDetection(CocoDetection):
     
     def __init__(self, type: Literal["overlook", "badloc", "swap"], config: Union[OverlookNoiseConfig, BadLocNoiseConfig, SwapNoiseConfig], task, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        random.seed(42)
+        # Synthesizing noisy labels from the original labels requires the following steps:
+        #  Overlook (See OverlookNoiseConfig):
+        #  - Randomly sample the annotations to remove for given prob
+        #  - For each sampled annotation, add a flag to the annotation to track that it is noisy
+        #  - Refer to the __getitem__ method for how to handle the case when all the labels are overlooked
+        #  BadLoc (See BadLocNoiseConfig):
+        #  - Randomly sample the annotations to perturb for given prob
+        #  - For each sampled annotation, randomly sample the pixels to move the bounding box by a random amount dx, dy
+        #  - Perturb the positions of the bounding box/segmentation by dx, dy
+        #  - Clip the bounding box/segmentation to the image
+        #  Swap (See SwapNoiseConfig):
+        #  - Randomly sample the classes to swap for given num_classes_to_swap
+        #  - Create pairs of classes to swap
+        #  - For each pair, randomly sample the annotations to swap for given prob
+        #  - Swap the classes of the sampled annotations
         self.task = task
-        random.seed(42) # fixed seed for reproducibility
-        # CocoDetection uses self.coco.loadAnns(self.coco.getAnnIds(id)) to load the target, where 
-        #   imgToAnns: imgToAnns['image_id'] = anns
-        #   getAnnIds: self.imgToAnns[imgId]
-        #   loadAnns: [self.anns[id] for id in annIds]
-        # Therefore, manipulate self.coco.imgToAnns for overlook by removing some anns from imgToAnns
-        # This requires the following steps:
-        # 1. For given prob, calculate the number of annotations to remove
-        # 2. Randomly sample the annotations to remove
-        # 3. Remove the sampled annotations from imgToAnns
-
-        # Then, manipulate self.coco.anns for badloc/swap by perturbing the positions/classes
-        # This requires the following steps:
-        # 1. For given prob, calculate the number of annotations to perturb
-        #   1.1. For swap, randomly sample the classes to swap for given num_classes_to_swap
-        #   1.2. Create pairs of classes to swap
-        #   1.3. For each pair, randomly sample the annotations to swap for given prob
-        #   1.4. Swap the classes of the sampled annotations
-        # 2. Randomly sample the annotations to perturb
-        # 3. Perturb the positions/classes of the sampled annotations
-
         self.type = type
         self.config = config
+        self.classes = self.coco.cats.copy()
 
         # Add a flag to each annotation to track whether it is noisy or not
         for ann_id, ann in self.coco.anns.items():
@@ -132,20 +130,12 @@ class NoisyCocoDetection(CocoDetection):
             ann["noisy_label_type"] =  NoiseType.NORMAL.value
 
         cat_ids = self.coco.getCatIds()
-        self.classes = self.coco.cats.copy()
-
         ann_ids = self.coco.getAnnIds()
         
-        counts = {}
-        for cat_id in cat_ids:
-            counts[cat_id] = len(self.coco.getAnnIds(catIds=cat_id))
-
         match type:
             case "overlook":
                 assert isinstance(config, OverlookNoiseConfig)
-                prob = config.prob
-
-                num_noise = int(len(ann_ids) * prob)
+                num_noise = int(len(ann_ids) * config.prob)
                 ann_ids_overlook = random.sample(ann_ids, num_noise)
 
                 for ann_id in ann_ids_overlook:
@@ -154,10 +144,7 @@ class NoisyCocoDetection(CocoDetection):
 
             case "badloc":
                 assert isinstance(config, BadLocNoiseConfig)
-                prob = config.prob
-                max_pixel = config.max_pixel
-
-                num_noise = int(len(ann_ids) * prob)
+                num_noise = int(len(ann_ids) * config.prob)
                 ann_ids_badloc = random.sample(ann_ids, num_noise)
 
                 for ann_id in ann_ids_badloc:
@@ -176,8 +163,8 @@ class NoisyCocoDetection(CocoDetection):
                     img_width, img_height = img["width"], img["height"]
 
                     # Pixels to move the bounding box 
-                    dx = random.randint(-max_pixel, max_pixel)
-                    dy = random.randint(-max_pixel, max_pixel)
+                    dx = random.randint(-config.max_pixel, config.max_pixel)
+                    dy = random.randint(-config.max_pixel, config.max_pixel)
 
                     x1 = x1 + dx
                     y1 = y1 + dy
@@ -204,10 +191,7 @@ class NoisyCocoDetection(CocoDetection):
 
             case "swap":
                 assert isinstance(config, SwapNoiseConfig)
-                num_classes_to_swap = config.num_classes_to_swap
-                prob = config.prob
-
-                classes_to_swap = random.sample(cat_ids, num_classes_to_swap)
+                classes_to_swap = random.sample(cat_ids, config.num_classes_to_swap)
                 pairs_to_swap = combinations(classes_to_swap, 2)
                 
                 ann_ids_class = {cat_id: self.coco.getAnnIds(catIds=cat_id) for cat_id in classes_to_swap}
@@ -217,8 +201,8 @@ class NoisyCocoDetection(CocoDetection):
                     ann_ids_i = ann_ids_class[i]
                     ann_ids_j = ann_ids_class[j]
 
-                    num_to_swap_i = int(min(counts[i], len(ann_ids_class[i])) * prob)
-                    num_to_swap_j = int(min(counts[j], len(ann_ids_class[j])) * prob)
+                    num_to_swap_i = int(min(counts[i], len(ann_ids_class[i])) * config.prob)
+                    num_to_swap_j = int(min(counts[j], len(ann_ids_class[j])) * config.prob)
 
                     ann_ids_swap_i = random.sample(ann_ids_i, num_to_swap_i)
                     ann_ids_swap_j = random.sample(ann_ids_j, num_to_swap_j)
@@ -366,15 +350,8 @@ class NoisyCocoDataModule(pl.LightningDataModule):
             collate_fn=collate_fn
         )
     
-    def predict_info(self):
-        return {
-            "flipped_labels": [self.dataset.flipped_labels()[i] for i in self.data_pred.idxs],
-            "pred_idxs": self.data_pred.idxs,
-            "fold_index": self.hparams.fold_index
-        }
-    
     def pred_images(self):
-        # remove the transform to get the original images
+        # remove the transform to get the original images without any augmentation e.g. normalization
         transform = self.data_pred.transform
         self.data_pred.transform = None 
         images = [image for image, _ in self.data_pred]

@@ -8,16 +8,13 @@ num_workers: 8
 pin_memory: true
 
 train_transform:
-  _target_: src.transforms.detection.get_transform
-  is_train: true
+  _target_: src.transforms.detection.DetectionPresetTrain
   data_augmentation: hflip
 
 valid_transform:
-  _target_: src.transforms.detection.get_transform
-  is_train: false
+  _target_: src.transforms.detection.DetectionPresetEval
   
 test_transform:
-  _target_: src.transforms.detection.get_transform
-  is_train: false
+  _target_: src.transforms.detection.DetectionPresetEval
 
 task: det

@@ -6,6 +6,7 @@ import cv2
 import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import functional as F
+
 @dataclass
 class OverlookNoiseConfig:
     prob: float = 0.1
@@ -25,6 +26,7 @@ class NoiseType(Enum):
     OVERLOOK: int = 1
     BADLOC: int = 2
     SWAP: int = 3
+
 class SubsetWithTransform(Dataset):
     def __init__(self, dataset, idxs, transform=None):
         self.dataset = dataset

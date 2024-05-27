@@ -86,12 +86,3 @@ def efficientnetb0_transform() -> Callable:
     """
     weights = EfficientNet_B0_Weights.IMAGENET1K_V1
     return weights.transforms()
-
-def get_transform(is_train, **kwargs):
-    if is_train:
-        return ClassificationPresetTrain(
-            **kwargs
-        )
-    
-    return ClassificationPresetEval(**kwargs)
-    

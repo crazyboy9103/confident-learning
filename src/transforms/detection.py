@@ -64,12 +64,3 @@ def retinanet_transform() -> Callable:
     """
     weights = RetinaNet_ResNet50_FPN_Weights.COCO_V1
     return weights.transforms()
-
-def get_transform(is_train, **kwargs):
-    if is_train:
-        return DetectionPresetTrain(
-            **kwargs
-        )
-    
-    return DetectionPresetEval(**kwargs)
-    

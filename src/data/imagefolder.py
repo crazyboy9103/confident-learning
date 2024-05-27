@@ -11,8 +11,10 @@ from sklearn.model_selection import StratifiedKFold
 from .utils import SubsetWithTransform
 from .utils import SwapNoiseConfig
 from .utils import uniform_size_collate_fn
+
 class NoisyImageFolder(ImageFolder):
     def __init__(self, noise_config: SwapNoiseConfig, *args, **kwargs):
+        assert isinstance(noise_config, SwapNoiseConfig), f"Unsupported noise config: {noise_config}" 
         super().__init__(*args, **kwargs)
         random.seed(42) # fixed seed for reproducibility
 

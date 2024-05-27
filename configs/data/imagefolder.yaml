@@ -7,16 +7,13 @@ num_workers: 8
 pin_memory: true
 
 train_transform:
-  _target_: src.transforms.classification.get_transform
-  is_train: true
+  _target_: src.transforms.classification.ClassificationPresetTrain
   resize_size: 224
 
 valid_transform:
-  _target_: src.transforms.classification.get_transform
-  is_train: false
+  _target_: src.transforms.classification.ClassificationPresetEval
   resize_size: 224
   
 test_transform:
-  _target_: src.transforms.classification.get_transform
-  is_train: false
+  _target_: src.transforms.classification.ClassificationPresetEval
   resize_size: 224

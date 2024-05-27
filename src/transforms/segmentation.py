@@ -88,11 +88,3 @@ def fcn_transform() -> Callable:
     """
     weights = FCN_ResNet50_Weights.COCO_WITH_VOC_LABELS_V1
     return weights.transforms()
-
-def get_transform(is_train, **kwargs):
-    if is_train:
-        return SegmentationPresetTrain(
-            **kwargs
-        )
-    
-    return SegmentationPresetEval(**kwargs)

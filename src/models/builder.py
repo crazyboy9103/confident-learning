@@ -2,7 +2,6 @@ import math
 
 import torch.nn as nn
 
-# from torchvision.ops import misc as misc_nn_ops
 from torchvision.models.efficientnet import efficientnet_b0, EfficientNet_B0_Weights
 from torchvision.models.detection.retinanet import retinanet_resnet50_fpn, RetinaNet_ResNet50_FPN_Weights, RetinaNetHead, RetinaNetClassificationHead
 from torchvision.models.segmentation.fcn import fcn_resnet50, FCN_ResNet50_Weights, FCNHead 

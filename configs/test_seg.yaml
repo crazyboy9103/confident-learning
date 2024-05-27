@@ -27,16 +27,16 @@ paths:
 data: 
   batch_size: 16
   train_transform:
-    _target_: src.transforms.segmentation.get_transform
+    _target_: src.transforms.segmentation.SegmentationPresetTrain
     base_size: 520
     crop_size: 480
     hflip_prob: 0.5
 
   valid_transform:
-    _target_: src.transforms.segmentation.get_transform
+    _target_: src.transforms.segmentation.SegmentationPresetEval
 
   test_transform:
-    _target_: src.transforms.segmentation.get_transform
+    _target_: src.transforms.segmentation.SegmentationPresetEval
 
   noise_type: ${conflearn.noise_type}
   noise_config: ${conflearn.noise_config}

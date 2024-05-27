@@ -111,7 +111,7 @@ class SegmentationModel(pl.LightningModule):
     
     def configure_optimizers(self):
         optimizer = self.hparams.optimizer(
-            self.trainer.model.parameters()
+            self.parameters()
         )
         if self.hparams.scheduler:
             scheduler = self.hparams.scheduler(optimizer)

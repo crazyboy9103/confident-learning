@@ -55,10 +55,6 @@ class ClassificationModel(pl.LightningModule):
     def on_validation_epoch_end(self):
         self.log(f'valid_acc_{self.hparams.fold}', self.valid_acc.compute())
         self.valid_acc.reset()
-    
-    def on_train_epoch_end(self):
-        self.log(f"train_acc_{self.hparams.fold}", self.train_acc.compute())
-        self.train_acc.reset()
 
     def predict_step(self, batch, batch_idx):
         _, targets = batch
@@ -71,7 +67,7 @@ class ClassificationModel(pl.LightningModule):
     
     def configure_optimizers(self):
         optimizer = self.hparams.optimizer(
-            self.trainer.model.parameters()
+            self.parameters()
         )
         if self.hparams.scheduler:
             scheduler = self.hparams.scheduler(optimizer)
