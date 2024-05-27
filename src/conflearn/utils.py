@@ -70,7 +70,7 @@ def softmin(x, temperature=1.0):
 
 def softmin1d_pooling(x, temperature=1.0):
     nan_mask = np.isnan(x)
-    # If the input only contains np.nan, return 1, for overlooked cases
+    # If the input only contains np.nan, return 1.0
     if np.all(nan_mask):
         return 1.0
     

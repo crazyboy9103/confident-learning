@@ -7,6 +7,7 @@ epoch_values=(12)
 noise_types=("overlook" "badloc" "swap")
 task_names=("cosmetic" "chocoball")
 data_paths=("cosmetic" "chocoball")
+# Different batch sizes for different image sizes
 batch_sizes=(8 16)
 # Calculate the number of tasks
 task_count=${#task_names[@]}

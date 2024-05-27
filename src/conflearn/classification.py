@@ -24,7 +24,7 @@ class Classification:
         Args:
             method: 
                 1. pl: pseudo-labeling
-                    Errors: pseudo-labels do not match with GT labels 
+                    Errors: pseudo-labels that do not match with GT labels 
                 2. cl: confident learning 
                     Errors: off-diagonal elements of the confident joint
             score_method:
@@ -47,7 +47,7 @@ class Classification:
                 for i in range(len(self.preds)):
                     indices = above_thresholds[i].nonzero()[0]
                     if len(indices) == 0:
-                        # threshold 이상인 class가 없는 경우 무시
+                        # ignore pred if none of the classes are above threshold
                         error_mask.append(False)
                         continue
                     

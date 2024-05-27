@@ -2,6 +2,7 @@
 from typing import Callable
 
 import torch
+from torchvision import tv_tensors
 from torchvision.transforms import v2
 from torchvision.models.detection.retinanet import RetinaNet_ResNet50_FPN_Weights
 
@@ -30,7 +31,7 @@ class DetectionPresetTrain:
 
         transforms += [
             v2.ToDtype(torch.float, scale=True),
-            # v2.ConvertBoundingBoxFormat(tv_tensors.BoundingBoxFormat.XYXY),
+            v2.ConvertBoundingBoxFormat(tv_tensors.BoundingBoxFormat.XYXY),
             v2.SanitizeBoundingBoxes(),
             v2.ToPureTensor(),
         ]
@@ -46,6 +47,7 @@ class DetectionPresetEval:
         transforms = [
             v2.ToImage(),
             v2.ToDtype(torch.float, scale=True),
+            v2.ConvertBoundingBoxFormat(tv_tensors.BoundingBoxFormat.XYXY),
             v2.SanitizeBoundingBoxes(),
             v2.ToPureTensor()
         ]

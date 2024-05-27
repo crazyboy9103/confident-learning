@@ -55,7 +55,7 @@ class NoisyCocoDetection(CocoDetection):
                 if self.task == "det":
                     target["boxes"] = tv_tensors.BoundingBoxes(
                         torch.zeros(0, 4, dtype=torch.float32),
-                        format=tv_tensors.BoundingBoxFormat.XYXY,
+                        format=tv_tensors.BoundingBoxFormat.XYWH,
                         canvas_size=canvas_size
                     )
                 target["labels"] = torch.tensor([], dtype=torch.int64)
@@ -71,13 +71,10 @@ class NoisyCocoDetection(CocoDetection):
             batched_target["category_id"] = [category_id for category_id, noisy_label in zip(batched_target["category_id"], batched_target["noisy_label"]) if not noisy_label]
 
         if self.task == "det":
-            target["boxes"] = F.convert_bounding_box_format(
-                tv_tensors.BoundingBoxes(
-                    batched_target["bbox"],
-                    format=tv_tensors.BoundingBoxFormat.XYWH,
-                    canvas_size=canvas_size,
-                ),
-                new_format=tv_tensors.BoundingBoxFormat.XYXY,
+            target["boxes"] = tv_tensors.BoundingBoxes(
+                batched_target["bbox"],
+                format=tv_tensors.BoundingBoxFormat.XYWH,
+                canvas_size=canvas_size
             )
 
         # segmentation_to_mask(segmentation, canvas_size=canvas_size) is a binary mask of shape (height, width)
