@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd /workspace/src
+
 lr_values=(0.0001)
 epoch_values=(12)
 noise_types=("overlook" "badloc" "swap")

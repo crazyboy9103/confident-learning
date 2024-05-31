@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd /workspace/src
+
 lr_values=(0.001)
 epoch_values=(12)
 resize_sizes=(800 384 384)

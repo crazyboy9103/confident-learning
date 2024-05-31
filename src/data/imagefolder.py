@@ -77,9 +77,16 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
         fold_index: int = 0, # for k-fold cross validation
         num_folds: int = 4, # for k-fold cross validation
     ) -> None:
-        """NoisyImageFolderDataModule is a wrapper around torchvision `ImageFolder` dataset that randomly flips the labels. `root` is the argument to the `ImageFolder` class.
-        Specifically, it randomly swaps the labels of a given number of classes with a given probability. The noise_type and noise_config must be "swap" and SwapNoiseConfig, respectively.
-        Also, it supports k-fold cross validation by splitting the dataset into `num_folds` folds and using the `fold_index` to select the fold.
+        """NoisyImageFolderDataModule is a wrapper around the torchvision `ImageFolder` dataset that adds noise to the labels.
+        The parameter `root` is passed to the `ImageFolder` class.
+
+        This module introduces label noise by randomly swapping the labels of a given number of classes with a specified probability.
+
+        The following configurations are required:
+        - `noise_type`: Must be set to "swap".
+        - `noise_config`: Must be an instance of SwapNoiseConfig.
+
+        Additionally, the module supports k-fold cross-validation by splitting the dataset into `num_folds` folds and selecting the desired fold with the `fold_index` parameter.
 
         :param root: The data directory. Defaults to `"data/"`.
         :param batch_size: The batch size. Defaults to `64`.

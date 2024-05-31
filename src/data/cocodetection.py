@@ -80,12 +80,12 @@ class NoisyCocoDetection(CocoDetection):
             )
 
         # segmentation_to_mask(segmentation, canvas_size=canvas_size) is a binary mask of shape (height, width)
-        # We multiply it by category_id to get a mask of shape (height, width) with the category_id as the pixel value
-        # For semantic segmentation, we want the mask to be of shape (1, height, width) with the pixel value as the category_id
-        # Therefore, we stack the masks and take the maximum value along the 0th dimension to get the final mask 
-        # Neuro-T uses minimum value, but here we assume that there is no overlap between the masks (though there might be incorrect cases) 
-        # so it does not matter whether we use minimum or maximum
-        # The reason why we do not use minimum is that we want to keep 255 which is ignored in the loss function
+        # We multiply each mask by category_id to get the mask of shape (height, width) with pixel value as category_id
+        # Then stack all the masks to get a tensor of shape (num_objects, height, width)
+        # Since we need the mask of shape (1, height, width) for semantic segmentation, we take the maximum value along the first dimension
+        # Because we assume that there is no overlap between the masks (though there might be), we can take the maximum value
+        # The reason why we do not use minimum is that we want to keep padded values (255), to be able to differentiate between background (0) and padded values
+        # 255 is ignored in loss calculation
         elif self.task == "seg":
             target["masks"] = tv_tensors.Mask(
                 torch.stack(
@@ -104,30 +104,37 @@ class NoisyCocoDetection(CocoDetection):
     def __init__(self, type: Literal["overlook", "badloc", "swap"], config: Union[OverlookNoiseConfig, BadLocNoiseConfig, SwapNoiseConfig], task, *args, **kwargs):
         super().__init__(*args, **kwargs)
         random.seed(42)
-        # Synthesizing noisy labels from the original labels requires the following steps:
-        #  Overlook (See OverlookNoiseConfig):
-        #  - Randomly sample the annotations to remove for given prob
-        #  - For each sampled annotation, add a flag to the annotation to track that it is noisy
-        #  - Refer to the __getitem__ method for how to handle the case when all the labels are overlooked
-        #  BadLoc (See BadLocNoiseConfig):
-        #  - Randomly sample the annotations to perturb for given prob
-        #  - For each sampled annotation, randomly sample the pixels to move the bounding box by a random amount dx, dy
-        #  - Perturb the positions of the bounding box/segmentation by dx, dy
-        #  - Clip the bounding box/segmentation to the image
-        #  Swap (See SwapNoiseConfig):
-        #  - Randomly sample the classes to swap for given num_classes_to_swap
-        #  - Create pairs of classes to swap
-        #  - For each pair, randomly sample the annotations to swap for given prob
-        #  - Swap the classes of the sampled annotations
+        # Synthesizing Noisy Labels from Original Labels
+        # This process involves the following steps, categorized by noise type configurations:
+
+        # Overlook Noise (See OverlookNoiseConfig):
+        # - Randomly sample annotations to remove based on a specified probability.
+        # - For each sampled annotation, add a flag to indicate that it is noisy.
+        # - The __getitem__ method will handle these overlooked annotations appropriately.
+
+        # Bad Location Noise (See BadLocNoiseConfig):
+        # - Randomly sample annotations to perturb based on a specified probability.
+        # - For each sampled annotation, randomly sample pixels to determine a random displacement (dx, dy).
+        # - Adjust the positions of the bounding box/segmentation by (dx, dy).
+        # - Ensure the perturbed bounding box/segmentation remains within the image boundaries.
+
+        # Class Swap Noise (See SwapNoiseConfig):
+        # - Randomly select a specified number of classes to swap.
+        # - Create pairs of classes for swapping.
+        # - For each pair, randomly sample annotations to swap based on a specified probability.
+        # - Swap the classes of the sampled annotations accordingly.
+
+        # Detailed steps for each noise type are implemented in their respective configurations.
         self.task = task
         self.type = type
         self.config = config
         self.classes = self.coco.cats.copy()
 
-        # Add a flag to each annotation to track whether it is noisy or not
+        # Add a flag to each annotation to indicate whether it is noisy or not
+        # This is important for evaluating the performance of confident learning 
         for ann_id, ann in self.coco.anns.items():
             ann["noisy_label"] = False
-            ann["noisy_label_type"] =  NoiseType.NORMAL.value
+            ann["noisy_label_type"] = NoiseType.NORMAL.value
 
         cat_ids = self.coco.getCatIds()
         ann_ids = self.coco.getAnnIds()
@@ -237,13 +244,18 @@ class NoisyCocoDataModule(pl.LightningDataModule):
         fold_index: int = 0, # for k-fold cross validation
         num_folds: int = 4, # for k-fold cross validation
     ) -> None:
-        """NoisyCocoDataModule is a wrapper around torchvision `CocoDetection` dataset that adds noise to the labels. `root` and `annFile` are the arguments to the `CocoDetection` class. 
-        Specifically, it can add three types of noise: `overlook`, `badloc`, and `swap`.
-        1. `overlook`: Randomly remove some of the labels.
-        2. `badloc`: Randomly move the bounding boxes or segmentations.
-        3. `swap`: Randomly swap the classes of the labels.
-        For each type of noise, the configuration can be set using the `noise_config` parameter. Refer to NoisyCocoDetection class for more details.
-        Also, it supports k-fold cross validation by splitting the dataset into `num_folds` folds and using the `fold_index` to select the fold.
+        """NoisyCocoDataModule is a wrapper around the torchvision `CocoDetection` dataset that introduces noise into the labels. 
+        The parameters `root` and `annFile` are passed to the `CocoDetection` class.
+
+        This module can introduce three types of noise to the dataset:
+        1. `overlook`: Randomly removes some of the labels.
+        2. `badloc`: Randomly perturbs the bounding boxes or segmentations.
+        3. `swap`: Randomly swaps the classes of the labels.
+
+        Each type of noise can be configured using the `noise_config` parameter. 
+        Refer to the NoisyCocoDetection class for more detailed implementation.
+
+        Additionally, the module supports k-fold cross-validation by splitting the dataset into `num_folds` folds and selecting the desired fold with the `fold_index` parameter.
 
         :param root: The root directory of the dataset.
         :param annFile: The annotation file of the dataset.

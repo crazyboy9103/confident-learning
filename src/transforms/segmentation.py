@@ -41,7 +41,8 @@ class SegmentationPresetTrain:
     ):
         transforms = [
             v2.ToImage(), 
-            v2.RandomResize(min_size=int(0.5 * base_size), max_size=int(2.0 * base_size))
+            # antialias=True (see torchvision/transforms/functional.py:1603)
+            v2.RandomResize(min_size=int(0.5 * base_size), max_size=int(2.0 * base_size), antialias=True)
         ]
 
         if hflip_prob > 0:
