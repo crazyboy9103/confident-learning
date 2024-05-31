@@ -18,7 +18,6 @@ def prepare_for_conflearn(target_dict, pred_prob):
     return self_conf.numpy()
 
 def parse_masks_for_wandb(target_mask_per_image, pred_mask_per_image, class_labels):
-    # explicitly cast to int and float to avoid serialization issues
     predictions = {
         "mask_data": pred_mask_per_image,
         "class_labels": class_labels
@@ -66,7 +65,7 @@ def main(cfg: DictConfig):
 
         trainer_instance = trainer(logger=logger, callbacks=callbacks)
         trainer_instance.fit(model_instance, datamodule=data_module)
-        preds = trainer_instance.predict(model_instance, datamodule=data_module)
+        preds = trainer_instance.predict(model_instance, datamodule=data_module, ckpt_path="best")
         
         targets = [result[0] for result in preds]
         preds = [result[1] for result in preds]
@@ -80,13 +79,7 @@ def main(cfg: DictConfig):
         images = data_module.pred_images()
         accum_images.extend(images)
 
-    # (W x H), (1 x H x W), (K+1 x H x W)
-    print(accum_images[0].size, accum_targets[0]["masks"].shape, accum_preds[0].shape)
-
-    self_confs = []
-    for target, pred in zip(accum_targets, accum_preds):
-        self_confs.append(prepare_for_conflearn(target, pred))
-
+    self_confs = [prepare_for_conflearn(target, pred) for target, pred in zip(accum_targets, accum_preds)]
     conflearn = Segmentation(self_confs)
     scores = conflearn.get_result(cfg.pooling, cfg.softmin_temperature)
 
@@ -102,7 +95,7 @@ def main(cfg: DictConfig):
     ])
 
     df = pd.DataFrame({
-        "noisy": noisy_labels,
+        "swapped": noisy_labels,
         "label_score": scores,
         "images": [wandb.Image(
             accum_images[i],
@@ -117,13 +110,11 @@ def main(cfg: DictConfig):
     logger.experiment.log({"result": wandb.Table(dataframe=df)})
 
     aucroc, best_threshold, roc_curve_fig = roc_evaluation(noisy_labels, scores)
-
     logger.experiment.log({
         'aucroc': aucroc,
         'best_threshold': best_threshold,
         'roc_curve': wandb.Image(roc_curve_fig)
     })
-    
 
 if __name__ == '__main__':
     main()

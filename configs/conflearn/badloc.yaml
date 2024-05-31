@@ -2,4 +2,4 @@ noise_type: badloc
 noise_config: 
   _target_: src.data.utils.BadLocNoiseConfig
   prob: 0.1
-  max_pixel: 20
+  max_pixel: 50

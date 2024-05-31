@@ -237,16 +237,24 @@ class NoisyCocoDataModule(pl.LightningDataModule):
         fold_index: int = 0, # for k-fold cross validation
         num_folds: int = 4, # for k-fold cross validation
     ) -> None:
-        """Initialize a `NoisyCocoDataModule`.
+        """NoisyCocoDataModule is a wrapper around torchvision `CocoDetection` dataset that adds noise to the labels. `root` and `annFile` are the arguments to the `CocoDetection` class. 
+        Specifically, it can add three types of noise: `overlook`, `badloc`, and `swap`.
+        1. `overlook`: Randomly remove some of the labels.
+        2. `badloc`: Randomly move the bounding boxes or segmentations.
+        3. `swap`: Randomly swap the classes of the labels.
+        For each type of noise, the configuration can be set using the `noise_config` parameter. Refer to NoisyCocoDetection class for more details.
+        Also, it supports k-fold cross validation by splitting the dataset into `num_folds` folds and using the `fold_index` to select the fold.
 
-        :param data_dir: The data directory. Defaults to `"data/"`.
+        :param root: The root directory of the dataset.
+        :param annFile: The annotation file of the dataset.
         :param batch_size: The batch size. Defaults to `64`.
         :param num_workers: The number of workers. Defaults to `0`.
         :param pin_memory: Whether to pin memory. Defaults to `False`.
         :param train_transform: The transform to apply to the train images. Defaults to `None`.
         :param valid_transform: The transform to apply to the valid images. Defaults to `None`.
         :param test_transform: The transform to apply to the test images. Defaults to `None`.
-        :param noise_type: The type of noise to apply. Defaults to `"overlook"`.
+        :param task: The task to perform. Either `"det"` for detection or `"seg"` for segmentation. Defaults to `"det"`.
+        :param noise_type: The type of noise to apply. Either `"overlook"`, `"badloc"`, or `"swap"`. Defaults to `"overlook"`.
         :param noise_config: The configuration of the noise to apply. Defaults to `OverlookNoiseConfig()`.
         :param fold_index: The index of the fold to use. Defaults to `0`.
         :param num_folds: The number of folds to use. Defaults to `4`.

@@ -3,12 +3,13 @@ from tqdm import tqdm
 from .utils import softmin
 
 class Segmentation:
-    def __init__(self, pred_selfconf_probs):
-        self.pred_selfconf_probs = pred_selfconf_probs
+    def __init__(self, selfconf):
+        # we take self confidence scores for each pixel
+        self.selfconf = selfconf
     
     def get_result(self, pooling=False, softmin_temperature=0.1):
         scores = []
-        for score in tqdm(self.pred_selfconf_probs, total=len(self.pred_selfconf_probs), desc="Calculating scores"):
+        for score in tqdm(self.selfconf, total=len(self.selfconf), desc="Calculating scores"):
             if pooling:
                 weights = softmin(score, temperature=softmin_temperature)
                 score = weights * score

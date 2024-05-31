@@ -47,7 +47,7 @@ def main(cfg: DictConfig):
 
         trainer_instance = trainer(logger=logger, callbacks=callbacks)
         trainer_instance.fit(model_instance, datamodule=data_module)
-        preds = trainer_instance.predict(model_instance, datamodule=data_module)
+        preds = trainer_instance.predict(model_instance, datamodule=data_module, ckpt_path="best")
         
         targets = torch.cat([result[0] for result in preds], dim=0)
         probs = torch.cat([result[1] for result in preds], dim=0)

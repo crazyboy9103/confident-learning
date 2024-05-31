@@ -22,7 +22,7 @@ alpha: 0.1
 badloc_min_confidence: 0.5
 min_confidence: 0.95
 pooling: true
-softmin_temperature: 0.1 
+softmin_temperature: 0.1
 
 paths:
   data_root_dir: /datasets/conflearn/det/chocoball
@@ -57,6 +57,7 @@ model:
   trainable_backbone_layers: 5
   compile: true
   # kwargs for retinanet_fpn
+  # score_thresh: 0.5
   score_thresh: 0.05
   nms_thresh: 0.5
   detections_per_img: 100

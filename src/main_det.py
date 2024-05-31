@@ -18,12 +18,11 @@ from src.eval_utils import roc_evaluation
 def prepare_for_conflearn(target_dict, pred_dict):
     for k, v in pred_dict.items():
         if isinstance(v, torch.Tensor):
-            # for mixed precision training, we need to convert the predictions back to the original dtype
-            # and move them to CPU, convert them to numpy arrays
-            if k in target_dict:
-                orig_dtype = target_dict[k].dtype
-                v = v.to(orig_dtype)
             pred_dict[k] = v.cpu().numpy()
+    
+    for k, v in target_dict.items():
+        if isinstance(v, torch.Tensor):
+            target_dict[k] = v.cpu().numpy()
 
 def prepare_for_cleanlab(targets, preds, num_classes):
     cleanlab_labels = []
@@ -95,7 +94,6 @@ def parse_boxes_for_wandb(target_boxes_per_image, target_labels_per_image, pred_
     
 @hydra.main(version_base=None, config_path="../configs", config_name="test_det.yaml")
 def main(cfg: DictConfig):
-    print(cfg)
     pl.seed_everything(cfg.seed, workers=True)
     torch.set_float32_matmul_precision("medium")
 
@@ -127,7 +125,7 @@ def main(cfg: DictConfig):
 
         trainer_instance = trainer(logger=logger, callbacks=callbacks)
         trainer_instance.fit(model_instance, datamodule=data_module)
-        preds = trainer_instance.predict(model_instance, datamodule=data_module)
+        preds = trainer_instance.predict(model_instance, datamodule=data_module, ckpt_path="best")
         
         targets = [result[0] for result in preds]
         preds = [result[1] for result in preds]

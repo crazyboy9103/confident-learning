@@ -19,6 +19,11 @@ class Classification:
         assert thresholds.nonzero()[0].shape[0] == self.num_classes, "Some classes have no predictions"
         return thresholds
 
+    def confident_joint(self):
+        joint = [[] * self.num_classes for _ in range(self.num_classes)]
+        thresholds = self.per_class_thresholds()
+        return joint
+
     def get_result(self, method: Literal["pl", "cl"] = "cl", score_method: Literal["self_confidence", "normalized_margin"] = "self_confidence"):
         """
         Args:

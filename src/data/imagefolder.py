@@ -77,7 +77,9 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
         fold_index: int = 0, # for k-fold cross validation
         num_folds: int = 4, # for k-fold cross validation
     ) -> None:
-        """Initialize a `ImageFolderDataModule`.
+        """NoisyImageFolderDataModule is a wrapper around torchvision `ImageFolder` dataset that randomly flips the labels. `root` is the argument to the `ImageFolder` class.
+        Specifically, it randomly swaps the labels of a given number of classes with a given probability. The noise_type and noise_config must be "swap" and SwapNoiseConfig, respectively.
+        Also, it supports k-fold cross validation by splitting the dataset into `num_folds` folds and using the `fold_index` to select the fold.
 
         :param root: The data directory. Defaults to `"data/"`.
         :param batch_size: The batch size. Defaults to `64`.
@@ -87,11 +89,12 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
         :param valid_transform: The transform to apply to the valid images. Defaults to `None`.
         :param test_transform: The transform to apply to the test images. Defaults to `None`.
         :param num_classes_to_swap: The number of classes to swap <= num_classes. Defaults to `3`.
-        :param swap_prob: The probability to flip the targets. Defaults to `0.1`.
+        :param noise_type: must be "swap".
+        :param noise_config: must be SwapNoiseConfig().
         :param fold_index: The index of the fold to use. Defaults to `0`.
         :param num_folds: The number of folds to use. Defaults to `4`.
         """
-        assert noise_type == "swap", f"Unsupported noise type: {noise_type}"
+        assert noise_type == "swap" and isinstance(noise_config, SwapNoiseConfig), f"Unsupported noise type: {noise_type}, noise config: {noise_config}"
         super().__init__()
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
@@ -142,7 +145,7 @@ class NoisyImageFolderDataModule(pl.LightningDataModule):
 
             # the seed is intentionally fixed to ensure the same split for each instance, which is crucial for our implementation
             kfold = StratifiedKFold(n_splits=self.hparams.num_folds, shuffle=True, random_state=42)
-            splitted_data = [k for k in kfold.split(list(range(len(self.dataset))), self.dataset.noisy_labels)]
+            splitted_data = [k for k in kfold.split(range(len(self.dataset)), self.dataset.noisy_labels)]
             train_idxs, val_idxs = splitted_data[self.hparams.fold_index]
 
             self.data_train = SubsetWithTransform(self.dataset, train_idxs, self.hparams.train_transform)

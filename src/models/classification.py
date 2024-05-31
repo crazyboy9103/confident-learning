@@ -23,7 +23,6 @@ class ClassificationModel(pl.LightningModule):
         self.train_acc = Accuracy(task = "multiclass", num_classes=num_classes)
         self.valid_acc = Accuracy(task = "multiclass", num_classes=num_classes)
 
-
     def forward(self, x):
         return self.net(x)
 

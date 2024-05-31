@@ -22,13 +22,12 @@ class Detection:
             #   3. overlap with the GT
             if any(matching & confident & overlapping):
                 score = similarity(pred_boxes[matching & confident & overlapping], gt_box, alpha).max()
-            
+
             # If there is no prediction box that satisfies the above conditions, the score is 1 (correct)
             else:
                 score = 1.0
             
             scores.append(score)
-
         return scores
     
     def overlooked_scores(self, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, min_similarity, min_confidence, alpha):
@@ -77,19 +76,19 @@ class Detection:
             # Find the predicted boxes 
             #   1. that have high confidence 
             #   2. are of different class from the GT
-            high_confidence_wrong_class = (pred_labels != gt_label) & (pred_scores > min_confidence)
-            
+            confident = pred_scores > min_confidence
+            not_matching = pred_labels != gt_label
+            overlapping = (batch_iou(gt_box, pred_boxes) > 0).squeeze(0)
             # If there is no such prediction box, the score is 1 (correct)
-            if not any(high_confidence_wrong_class):
+            if not any(confident & not_matching & overlapping):
                 score = 1.0  
 
             else:
-                wrong_class_boxes = pred_boxes[high_confidence_wrong_class]
                 # Compute the max similarity for the prediction boxes that satisfy the above conditions
                 # The score is 1 - max similarity (higher similarity means lower score)
                 # (the image contains prediction boxes that are of different class from the GT, 
-                # so if the prediction boxes are close enough to the GT, it is likely to be a swapped case)
-                score = 1 - similarity(gt_box, wrong_class_boxes, alpha).max()
+                # so if the prediction boxes are close enough to the GT, it is likely a swapped case)
+                score = 1 - similarity(gt_box, pred_boxes[confident & not_matching & overlapping], alpha).max()
             scores.append(score)
 
         return scores
@@ -123,11 +122,11 @@ class Detection:
         preds = self.preds
         labels = self.labels
 
-        min_similarity = self.min_similarity(alpha=alpha)
-
         badloc_scores = []
         overlooked_scores = []
         swapped_scores = []
+        
+        min_similarity = self.min_similarity(alpha)
 
         for pred, label in tqdm(zip(preds, labels), total=len(preds), desc="Calculating scores"):
             pred_boxes = pred["boxes"]

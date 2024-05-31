@@ -73,3 +73,6 @@ outputs/
 *.pt
 *.png
 multirun/
+tests/
+neurot_to_coco.py
+test.ipynb
