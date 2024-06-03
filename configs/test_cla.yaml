@@ -23,7 +23,7 @@ cl_score_method: self_confidence # self_confidence, normalized_margin
 resize_size: 224 
 
 paths:
-  data_root_dir: /datasets/conflearn/cla/ramen_processed_data
+  data_root_dir: /datasets/conflearn/cla/ramen
 
 data: 
   batch_size: 16

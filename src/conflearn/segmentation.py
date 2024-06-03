@@ -4,10 +4,25 @@ from .utils import softmin
 
 class Segmentation:
     def __init__(self, selfconf):
-        # we take self confidence scores for each pixel
+        """
+        Initialize the Segmentation instance for assessing segmentation model predictions.
+
+        Args:
+            selfconf (list of np.array): List of arrays where each array contains self-confidence scores for each pixel in a segmentation mask.
+        """
         self.selfconf = selfconf
     
     def get_result(self, pooling=False, softmin_temperature=0.1):
+        """
+        Calculate scores for each set of pixel self-confidence scores, optionally using a softmin pooling strategy.
+
+        Args:
+            pooling (bool): Whether to apply softmin pooling to the scores.
+            softmin_temperature (float): Temperature parameter for the softmin function which controls the sharpness of the distribution.
+
+        Returns:
+            List[float]: The aggregated scores for each set of self-confidence scores.
+        """
         scores = []
         for score in tqdm(self.selfconf, total=len(self.selfconf), desc="Calculating scores"):
             if pooling:

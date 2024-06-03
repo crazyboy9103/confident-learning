@@ -29,13 +29,20 @@ class NoisyCocoDetection(CocoDetection):
         # If the target is empty, create an empty target
         if not target:
             target = {"image_id": image_id}
+            target["noisy_labels"] = torch.tensor([False,], dtype=torch.bool)
+            target["noisy_label_types"] = torch.tensor([NoiseType.NORMAL.value,], dtype=torch.int64)
             if self.task == "seg":
                 # For semantic segmentation, if the target is empty, we need to create an empty mask, i.e. a tensor of zeros
                 target["masks"] = tv_tensors.Mask(
                     torch.zeros(1, *canvas_size, dtype=torch.int64)
                 )
-            target["noisy_labels"] = torch.tensor([False,], dtype=torch.bool)
-            target["noisy_label_types"] = torch.tensor([NoiseType.NORMAL.value,], dtype=torch.int64)
+            elif self.task == "det":
+                target["boxes"] = tv_tensors.BoundingBoxes(
+                    torch.zeros(0, 4, dtype=torch.float32),
+                    format=tv_tensors.BoundingBoxFormat.XYWH,
+                    canvas_size=canvas_size
+                )
+            target["labels"] = torch.tensor([], dtype=torch.int64)
             return image, target
         
         batched_target = list_of_dicts_to_dict_of_lists(target)

@@ -6,10 +6,35 @@ from .utils import batch_iou, similarity, softmin1d_pooling
 
 class Detection:
     def __init__(self, labels, preds):
+        """
+        Initialize the Detection instance for assessing detection model predictions.
+        Expects (x1, y1, x2, y2) format for bounding boxes.
+
+        Args:
+            labels (list): List of dictionaries with keys 'boxes' (ground truth bounding boxes),
+                           'labels' (ground truth labels).
+            preds (list): List of dictionaries with keys 'boxes' (predicted bounding boxes),
+                          'scores' (confidence scores), 'labels' (predicted labels).
+        """
         self.labels = labels
         self.preds = preds
     
     def badloc_scores(self, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, min_confidence, alpha):
+        """
+        Calculates scores indicating the quality of localization based on overlap and class accuracy above a confidence threshold.
+        
+        Args:
+            pred_boxes (np.array): Array of predicted bounding boxes.
+            pred_scores (np.array): Array of prediction confidence scores.
+            pred_labels (np.array): Array of predicted labels.
+            gt_boxes (np.array): Array of ground truth bounding boxes.
+            gt_labels (np.array): Array of ground truth labels.
+            min_confidence (float): Minimum confidence score to consider a prediction valid.
+            alpha (float): Hyperparameter for adjusting the impact of similarity in scoring.
+        
+        Returns:
+            List[float]: Localization error scores for each ground truth box.
+        """
         scores = []
         for gt_box, gt_label in zip(gt_boxes, gt_labels):
             overlapping = (batch_iou(gt_box, pred_boxes) > 0).squeeze(0)
@@ -31,6 +56,13 @@ class Detection:
         return scores
     
     def overlooked_scores(self, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, min_similarity, min_confidence, alpha):
+        """
+        Calculates scores for potentially overlooked predictions that are not justified by the ground truth.
+        
+        Returns:
+            List[float]: Scores for each prediction box, indicating 1-likelihood of being an overlooked false negative.
+                         (lower score means higher likelihood of being overlooked)
+        """
         # If there is no GT, ignore all prediction boxes that have low confidence (nan)
         # and score min_similarity * (1 - confidence) (overlooked) for the rest
         if len(gt_boxes) == 0:
@@ -71,6 +103,12 @@ class Detection:
         return scores
 
     def swapped_scores(self, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, min_confidence, alpha):
+        """
+        Computes scores for class swap errors where the predicted class does not match the ground truth class but overlaps spatially.
+        
+        Returns:
+            List[float]: Scores indicating likelihood of class swap errors for each ground truth box.
+        """
         scores = []
         for gt_box, gt_label in zip(gt_boxes, gt_labels):
             # Find the predicted boxes 
@@ -94,6 +132,15 @@ class Detection:
         return scores
     
     def min_similarity(self, alpha):
+        """
+        Compute the minimum similarity score across all predictions and ground truths in all images. 
+
+        Args:
+            alpha (float): Hyperparameter for the similarity computation.
+
+        Returns:
+            float: Minimum similarity score observed.
+        """
         preds = self.preds
         labels = self.labels
         
@@ -119,6 +166,18 @@ class Detection:
         return min_similarity        
     
     def get_result(self, alpha=0.1, badloc_min_confidence=0.5, min_confidence = 0.95, pooling=True, softmin_temperature=0.1):
+        """
+        Aggregates scores across various metrics for all predictions.
+        
+        Args:
+            alpha (float): Hyperparameter for the similarity computation.
+            badloc_min_confidence (float): Minimum confidence score to consider a prediction valid for bad localization.
+            min_confidence (float): Minimum confidence score to consider a prediction valid for overlooked and swapped cases.
+            pooling (bool): Whether to apply softmin pooling to the per-box scores to get per-image scores.
+            softmin_temperature (float): Temperature parameter for softmin pooling, only used if pooling is True.
+        Returns:
+            tuple: Collections of scores for bad localization, overlooked predictions, and swapped classes.
+        """
         preds = self.preds
         labels = self.labels
 

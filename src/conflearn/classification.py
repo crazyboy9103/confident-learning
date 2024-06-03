@@ -4,19 +4,35 @@ import numpy as np
 
 class Classification:
     def __init__(self, labels, preds, num_classes):
+        """
+        Initialize the Classification instance for finding low-quality labels by assessing classification model predictions.
+        
+        Args:
+            labels (np.array): Ground truth labels, shape (N,).
+            preds (np.array): Predicted probabilities for each class, shape (N, num_classes).
+            num_classes (int): Number of unique classes.
+        """
         self.labels = labels
         self.preds = preds
         self.num_classes = num_classes
 
     def per_class_thresholds(self):
+        """
+        Calculate the mean predicted confidence for each class where the ground truth is that class.
+        
+        Returns:
+            np.array: An array of thresholds for each class.
+        """
         thresholds = np.zeros(self.num_classes)
         for i in range(self.num_classes):
-            # self-confidences of predictions where GT is i
+            # self-confidences of predictions whose GT is class i
             p_i = self.preds[self.labels == i, i]
-            # mean of self-confidences as per class threshold
+            # Mean self-confidence for class i as the threshold
             thresholds[i] = np.mean(p_i)
 
-        assert thresholds.nonzero()[0].shape[0] == self.num_classes, "Some classes have no predictions"
+        if np.any(thresholds == 0):
+            raise ValueError("Some classes have no predictions, resulting in zero thresholds.")
+        
         return thresholds
 
     def confident_joint(self):
@@ -26,18 +42,14 @@ class Classification:
 
     def get_result(self, method: Literal["pl", "cl"] = "cl", score_method: Literal["self_confidence", "normalized_margin"] = "self_confidence"):
         """
+        Compute error masks and label quality scores based on specified methods.
+
         Args:
-            method: 
-                1. pl: pseudo-labeling
-                    Errors: pseudo-labels that do not match with GT labels 
-                2. cl: confident learning 
-                    Errors: off-diagonal elements of the confident joint
-            score_method:
-                1. self_confidence: self-confidence of predictions
-                2. normalized_margin: p_y-p_{y'}, y'=argmax_k!=y p_k 
+            method (str): The method to compute errors ('pl' for pseudo-labeling, 'cl' for confident learning).
+            score_method (str): The method to compute label quality scores ('self_confidence' or 'normalized_margin').
+
         Returns:
-            error_mask: boolean mask of errors (True: error, False: correct) 
-            label_quality_scores: quality scores of labels (higher is more likely to be correct)
+            tuple: A boolean mask of errors and an array of label quality scores.
         """
         match method:
             case "pl":
@@ -56,12 +68,9 @@ class Classification:
                         error_mask.append(False)
                         continue
                     
-                    j = indices[self.preds[i, indices].argmax()]
-
-                    if self.preds[i, j] >= thresholds[j] and j != self.labels[i]:
-                        error_mask.append(True)
-                    else:
-                        error_mask.append(False)
+                    most_confident_class = indices[self.preds[i, indices].argmax()]
+                    error = self.labels[i] != most_confident_class and self.preds[i, most_confident_class] >= thresholds[most_confident_class]
+                    error_mask.append(error)
 
                 error_mask = np.array(error_mask)
 

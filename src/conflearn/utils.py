@@ -53,7 +53,10 @@ def similarity(boxes1, boxes2, alpha=0.1):
     return similarity_matrix
 
 def softmax(x, temperature=1.0):
-    """Compute softmax values for each sets of scores in x"""
+    """
+    Compute softmax values for each sets of scores in x.
+    softmax(x/temperature)
+    """
     # Use the maximum value to stabilize the computation (subtracting the maximum value does not change the result)
     # to avoid overflow in exp
     x = x / temperature
@@ -61,7 +64,8 @@ def softmax(x, temperature=1.0):
     return e_x / np.sum(e_x, keepdims=True)
 
 def softmin(x, temperature=1.0):
-    """Compute softmin values
+    """
+    Compute softmin values
     softmin(x/temperature)
     """
     if isinstance(x, list):

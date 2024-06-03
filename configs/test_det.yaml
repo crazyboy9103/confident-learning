@@ -31,7 +31,7 @@ data:
   batch_size: 16
   train_transform:
     _target_: src.transforms.detection.DetectionPresetTrain
-    data_augmentation: hflip # or multiscale
+    data_augmentation: multiscale # or multiscale
   
   valid_transform:
     _target_: src.transforms.detection.DetectionPresetEval
