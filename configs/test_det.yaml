@@ -31,7 +31,7 @@ data:
   batch_size: 16
   train_transform:
     _target_: src.transforms.detection.DetectionPresetTrain
-    data_augmentation: multiscale # or multiscale
+    data_augmentation: hflip # or multiscale
   
   valid_transform:
     _target_: src.transforms.detection.DetectionPresetEval
@@ -56,8 +56,7 @@ model:
   
   trainable_backbone_layers: 5
   compile: true
-  # kwargs for retinanet_fpn
-  # score_thresh: 0.5
+  # kwargs for torchvision retinanet_fpn
   score_thresh: 0.05
   nms_thresh: 0.5
   detections_per_img: 100

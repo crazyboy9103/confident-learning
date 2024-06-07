@@ -49,8 +49,9 @@ class DetectionModel(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         result = self.mAP.compute()
-        result.pop("classes")
-        self.log_dict({f"valid_{k}_{self.hparams.fold}": v for k, v in result.items()}) 
+        self.log(f"valid_map_{self.hparams.fold}", result.get("map", 0))
+        self.log(f"valid_mar_{self.hparams.fold}", result.get("mar", 0))
+        # self.log_dict({f"valid_{k}_{self.hparams.fold}": v for k, v in result.items()}) 
         self.mAP.reset()
 
     def predict_step(self, batch, batch_idx):

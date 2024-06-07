@@ -42,7 +42,7 @@ class NoisyCocoDetection(CocoDetection):
                     format=tv_tensors.BoundingBoxFormat.XYWH,
                     canvas_size=canvas_size
                 )
-            target["labels"] = torch.tensor([], dtype=torch.int64)
+            target["labels"] = torch.empty(0, dtype=torch.int64) # torch.tensor([], dtype=torch.int64)
             return image, target
         
         batched_target = list_of_dicts_to_dict_of_lists(target)
@@ -67,7 +67,7 @@ class NoisyCocoDetection(CocoDetection):
                         format=tv_tensors.BoundingBoxFormat.XYWH,
                         canvas_size=canvas_size
                     )
-                target["labels"] = torch.tensor([], dtype=torch.int64)
+                target["labels"] = torch.empty(0, dtype=torch.int64) # torch.tensor([], dtype=torch.int64)
                 return image, target
 
             # If only some of the labels are overlooked, filter out the overlooked labels
