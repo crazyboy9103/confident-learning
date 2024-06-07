@@ -4,7 +4,6 @@ from typing import Callable
 import torch
 from torchvision import tv_tensors
 from torchvision.transforms import v2
-from torchvision.transforms import functional as F
 from torchvision.models.segmentation.fcn import FCN_ResNet50_Weights 
 
 class PadIfSmaller(v2.Transform):
@@ -41,7 +40,7 @@ class SegmentationPresetTrain:
     ):
         transforms = [
             v2.ToImage(), 
-            # antialias=True (see torchvision/transforms/functional.py:1603)
+            # antialias=True is future default in torchvision
             v2.RandomResize(min_size=int(0.5 * base_size), max_size=int(2.0 * base_size), antialias=True)
         ]
 
