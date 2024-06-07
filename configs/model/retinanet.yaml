@@ -18,5 +18,5 @@ scheduler:
 
 trainable_backbone_layers: 5
 compile: true
-min_size: 800
-max_size: 1333
+# min_size: 800
+# max_size: 1333
