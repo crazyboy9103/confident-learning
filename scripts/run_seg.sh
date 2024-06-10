@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /workspace/src
+cd /workspace/confident-learning/src
 
 lr_values=(0.0001)
 eta_mins=(0.00001)
@@ -16,7 +16,7 @@ for lr in "${lr_values[@]}"; do
                 for i in $(seq 0 $((task_count - 1))); do
                     task=${task_names[$i]}
                     echo "Running: LR=$lr, Epochs=$epoch, Task=$task, Noise=$noise"
-                    python main_seg.py model.optimizer.lr=$lr model.scheduler.eta_min=$eta_min num_epochs=$epoch task_name=$task paths.data_root_dir="/datasets/conflearn/seg/$task" conflearn=$noise
+                    python main_seg.py model.optimizer.lr=$lr model.scheduler.eta_min=$eta_min num_epochs=$epoch task_name=$task paths.data_root_dir="/datasets/seg/$task" conflearn=$noise
                 done
             done
         done
