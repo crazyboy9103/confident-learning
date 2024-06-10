@@ -1,5 +1,6 @@
 import sys
-sys.path.append("..")
+sys.path.insert(0, "/workspace/confident-learning")
+
 from itertools import chain
 
 import torch
@@ -10,7 +11,7 @@ import pandas as pd
 import wandb 
 
 from conflearn.segmentation import Segmentation
-from src.eval_utils import roc_evaluation
+from eval_utils import roc_evaluation
 
 def configure_callbacks(cfg, fold_index):
     callbacks = []

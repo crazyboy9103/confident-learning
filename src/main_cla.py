@@ -1,5 +1,5 @@
 import sys
-sys.path.append("..")
+sys.path.insert(0, "/workspace/confident-learning")
 
 import torch
 import lightning.pytorch as pl 
@@ -10,8 +10,8 @@ import pandas as pd
 import wandb 
 from cleanlab.filter import find_label_issues, get_label_quality_scores
 
-from src.conflearn.classification import Classification
-from src.eval_utils import classification_evaluation
+from conflearn.classification import Classification
+from eval_utils import classification_evaluation
 
 def configure_callbacks(cfg, fold_index):
     callbacks = []

@@ -1,5 +1,6 @@
 import sys
-sys.path.append("..")
+sys.path.insert(0, "/workspace/confident-learning")
+
 from itertools import chain
 
 import torch
@@ -11,9 +12,9 @@ import wandb
 import numpy as np
 from cleanlab.object_detection.rank import get_label_quality_scores, compute_badloc_box_scores, compute_overlooked_box_scores, compute_swap_box_scores
 
-from src.conflearn.detection import Detection
-from src.conflearn.utils import softmin1d_pooling
-from src.eval_utils import roc_evaluation
+from conflearn.detection import Detection
+from conflearn.utils import softmin1d_pooling
+from eval_utils import roc_evaluation
 
 def configure_callbacks(cfg, fold_index):
     callbacks = []
